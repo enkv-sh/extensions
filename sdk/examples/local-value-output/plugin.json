@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "private-local-values",
+  "role": "output",
+  "version": "1.0.0",
+  "wire": {
+    "kind": "wire",
+    "identity": "c0432dd35c122a5bf0b44a58234ef9aef0a2cbeb48acd2169f4bc027f322dcf2",
+    "version": 6
+  },
+  "generator": null,
+  "output": {
+    "config_contract_id": "local-values-config/v1",
+    "credential_route": "AAEL5MDbkXClsFygHwtRho8e0wL37kjGFEh+xqyFI6eMdAEBEkVOS1ZfRVhBTVBMRV9UT0tFTgAAAAA="
+  },
+  "manifest": null
+}

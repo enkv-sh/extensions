@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "workshop-ini",
+  "role": "manifest-generator",
+  "version": "0.1.0",
+  "wire": {
+    "kind": "wire",
+    "identity": "3bced56e82388bdde8755797e90db44366bf32a75a8f394b7ba1f949bfdc9355",
+    "version": 2
+  },
+  "generator": null,
+  "output": null,
+  "manifest": {
+    "config_contract_id": "example/ini-reference-settings/v1",
+    "format_contract_id": "example/ini-reference/v1"
+  }
+}

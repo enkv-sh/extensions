@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "gcp-secret-manager",
+  "role": "output",
+  "version": "0.1.0",
+  "wire": {
+    "kind": "wire",
+    "identity": "c0432dd35c122a5bf0b44a58234ef9aef0a2cbeb48acd2169f4bc027f322dcf2",
+    "version": 6
+  },
+  "generator": null,
+  "output": {
+    "config_contract_id": "ENKV/OUTPUT/GCP-SECRET-MANAGER/CONFIG/v1",
+    "credential_route": "AAF90p5jivsGs+Wr/1fVla83/ZoXZFHBpLVXgttw4G9aiAIJD0NMT1VEU0RLX0NPTkZJRxFHQ0VfTUVUQURBVEFfSE9TVA9HQ0VfTUVUQURBVEFfSVAeR09PR0xFX0FQUExJQ0FUSU9OX0NSRURFTlRJQUxTFEdPT0dMRV9DTE9VRF9QUk9KRUNUGkdPT0dMRV9DTE9VRF9RVU9UQV9QUk9KRUNUHEdPT0dMRV9DTE9VRF9VTklWRVJTRV9ET01BSU4ESE9NRQRQQVRIAAAAAA=="
+  },
+  "manifest": null
+}

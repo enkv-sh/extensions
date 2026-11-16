@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "local-random-secret",
+  "role": "generator",
+  "version": "0.1.0",
+  "wire": {
+    "kind": "wire",
+    "identity": "cc827c32a204204ec680e29c0b79df771ea2ad5d2c1df10170d8b450e7628b0f",
+    "version": 5
+  },
+  "generator": {
+    "config_contract_id": "663075a79a657cf8e281991deb3cbfac760eff6445ead7af60005dd27d9e0caa",
+    "credential_route": "AAG35U9D46osI6xb8xD5Kt0BUE1t6CWszizHj6ybo5BbbQEAAAAAAA=="
+  },
+  "output": null,
+  "manifest": null
+}

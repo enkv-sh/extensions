@@ -1,0 +1,270 @@
+{
+  "schema_version": 1,
+  "go": "1.27.0",
+  "modules": [
+    {
+      "selector": "core",
+      "module": "enkv.sh/core",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "core",
+      "tag_prefix": "core/"
+    },
+    {
+      "selector": "crypto",
+      "module": "enkv.sh/crypto",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "crypto",
+      "tag_prefix": "crypto/"
+    },
+    {
+      "selector": "telemetry",
+      "module": "enkv.sh/telemetry",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "telemetry",
+      "tag_prefix": "telemetry/"
+    },
+    {
+      "selector": "providers/aws",
+      "module": "enkv.sh/providers/aws",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "providers/aws",
+      "tag_prefix": "providers/aws/"
+    },
+    {
+      "selector": "providers/gcp",
+      "module": "enkv.sh/providers/gcp",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "providers/gcp",
+      "tag_prefix": "providers/gcp/"
+    },
+    {
+      "selector": "compositions/generatorhost",
+      "module": "enkv.sh/compositions/generatorhost",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "compositions/generatorhost",
+      "tag_prefix": "compositions/generatorhost/"
+    },
+    {
+      "selector": "compositions/internal/nativeprocess",
+      "module": "enkv.sh/compositions/internal/nativeprocess",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "compositions/internal/nativeprocess",
+      "tag_prefix": "compositions/internal/nativeprocess/"
+    },
+    {
+      "selector": "compositions/outputhost",
+      "module": "enkv.sh/compositions/outputhost",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "compositions/outputhost",
+      "tag_prefix": "compositions/outputhost/"
+    },
+    {
+      "selector": "compositions/manifesthost",
+      "module": "enkv.sh/compositions/manifesthost",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "compositions/manifesthost",
+      "tag_prefix": "compositions/manifesthost/"
+    },
+    {
+      "selector": "compositions/configuration",
+      "module": "enkv.sh/compositions/configuration",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "compositions/configuration",
+      "tag_prefix": "compositions/configuration/"
+    },
+    {
+      "selector": "compositions/observability",
+      "module": "enkv.sh/compositions/observability",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "compositions/observability",
+      "tag_prefix": "compositions/observability/"
+    },
+    {
+      "selector": "compositions/aws",
+      "module": "enkv.sh/compositions/aws",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "compositions/aws",
+      "tag_prefix": "compositions/aws/"
+    },
+    {
+      "selector": "compositions/gcp",
+      "module": "enkv.sh/compositions/gcp",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "compositions/gcp",
+      "tag_prefix": "compositions/gcp/"
+    },
+    {
+      "selector": "compositions/full",
+      "module": "enkv.sh/compositions/full",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "compositions/full",
+      "tag_prefix": "compositions/full/"
+    },
+    {
+      "selector": "plugins/output-contract-test",
+      "module": "enkv.sh/tests/fixtures/output-contract-test",
+      "repository": "enkv-core",
+      "repository_url": "https://github.com/enkv-sh/core",
+      "directory": "tests/fixtures/output-contract-test",
+      "tag_prefix": "tests/fixtures/output-contract-test/"
+    },
+    {
+      "selector": "protocols/generator",
+      "module": "enkv.sh/sdk/protocols/generator",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/protocols/generator",
+      "tag_prefix": "sdk/protocols/generator/"
+    },
+    {
+      "selector": "protocols/output",
+      "module": "enkv.sh/sdk/protocols/output",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/protocols/output",
+      "tag_prefix": "sdk/protocols/output/"
+    },
+    {
+      "selector": "sdk/generator",
+      "module": "enkv.sh/sdk/generator",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/generator",
+      "tag_prefix": "sdk/generator/"
+    },
+    {
+      "selector": "sdk/output",
+      "module": "enkv.sh/sdk/output",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/output",
+      "tag_prefix": "sdk/output/"
+    },
+    {
+      "selector": "sdk/manifest-generator",
+      "module": "enkv.sh/sdk/manifest-generator",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/manifest-generator",
+      "tag_prefix": "sdk/manifest-generator/"
+    },
+    {
+      "selector": "plugins/cloudflare",
+      "module": "enkv.sh/plugins/generators/cloudflare-account-token",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "plugins/generators/cloudflare-account-token",
+      "tag_prefix": "plugins/generators/cloudflare-account-token/"
+    },
+    {
+      "selector": "plugins/aws-output",
+      "module": "enkv.sh/plugins/outputs/aws-secrets-manager",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "plugins/outputs/aws-secrets-manager",
+      "tag_prefix": "plugins/outputs/aws-secrets-manager/"
+    },
+    {
+      "selector": "plugins/gcp-output",
+      "module": "enkv.sh/plugins/outputs/gcp-secret-manager",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "plugins/outputs/gcp-secret-manager",
+      "tag_prefix": "plugins/outputs/gcp-secret-manager/"
+    },
+    {
+      "selector": "plugins/github-output",
+      "module": "enkv.sh/plugins/outputs/github-actions",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "plugins/outputs/github-actions",
+      "tag_prefix": "plugins/outputs/github-actions/"
+    },
+    {
+      "selector": "plugins/manifest-generators/generic-json",
+      "module": "enkv.sh/plugins/manifest-generators/generic-json",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "plugins/manifest-generators/generic-json",
+      "tag_prefix": "plugins/manifest-generators/generic-json/"
+    },
+    {
+      "selector": "sdk/artifact",
+      "module": "enkv.sh/sdk/artifact",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/artifact",
+      "tag_prefix": "sdk/artifact/"
+    },
+    {
+      "selector": "protocols/manifest-generator",
+      "module": "enkv.sh/sdk/protocols/manifest-generator",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/protocols/manifest-generator",
+      "tag_prefix": "sdk/protocols/manifest-generator/"
+    },
+    {
+      "selector": "plugins/local-random-secret",
+      "module": "enkv.sh/plugins/generators/local-random-secret",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "plugins/generators/local-random-secret",
+      "tag_prefix": "plugins/generators/local-random-secret/"
+    },
+    {
+      "selector": "plugins/manifest-generators/opentofu-tfvars-json",
+      "module": "enkv.sh/plugins/manifest-generators/opentofu-tfvars-json",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "plugins/manifest-generators/opentofu-tfvars-json",
+      "tag_prefix": "plugins/manifest-generators/opentofu-tfvars-json/"
+    },
+    {
+      "selector": "sdk/examples/local-token-generator",
+      "module": "enkv.sh/sdk/examples/local-token-generator",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/examples/local-token-generator",
+      "tag_prefix": "sdk/examples/local-token-generator/"
+    },
+    {
+      "selector": "sdk/examples/local-value-output",
+      "module": "enkv.sh/sdk/examples/local-value-output",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/examples/local-value-output",
+      "tag_prefix": "sdk/examples/local-value-output/"
+    },
+    {
+      "selector": "sdk/examples/ini-reference-manifest",
+      "module": "enkv.sh/sdk/examples/ini-reference-manifest",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/examples/ini-reference-manifest",
+      "tag_prefix": "sdk/examples/ini-reference-manifest/"
+    },
+    {
+      "selector": "sdk/examples/testservice",
+      "module": "enkv.sh/sdk/examples/testservice",
+      "repository": "enkv-extensions",
+      "repository_url": "https://github.com/enkv-sh/extensions",
+      "directory": "sdk/examples/testservice",
+      "tag_prefix": "sdk/examples/testservice/"
+    }
+  ]
+}

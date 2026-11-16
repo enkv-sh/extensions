@@ -1,0 +1,386 @@
+name: Build signed draft candidate
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Reviewed full source commit configured for this candidate
+        type: string
+        required: true
+permissions: {}
+concurrency:
+  group: release-candidate
+  cancel-in-progress: false
+env:
+  GOENV: 'off'
+  GOWORK: 'off'
+  GOTOOLCHAIN: local
+  CLI_PUBLIC_KEY_PEM: ${{ vars.CLI_PUBLIC_KEY_PEM }}
+  PLUGIN_PUBLIC_KEY_PEM: ${{ vars.PLUGIN_PUBLIC_KEY_PEM }}
+jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'enkv-sh/extensions' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Check owner release inputs
+        shell: bash
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          EXPECTED_SOURCE_COMMIT: ${{ vars.RELEASE_SOURCE_COMMIT }}
+          WORKFLOW_COMMIT: ${{ github.sha }}
+          EXPECTED_WORKFLOW_COMMIT: ${{ vars.RELEASE_WORKFLOW_COMMIT }}
+          TOOLS_COMMIT: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          PREVIOUS_CATALOG_COMMIT: ${{ vars.RELEASE_PREVIOUS_CATALOG_COMMIT }}
+          DEVELOPMENT_CLI_KEY: ${{ vars.DEVELOPMENT_CLI_PUBLIC_KEY_SHA256 }}
+          DEVELOPMENT_PLUGIN_KEY: ${{ vars.DEVELOPMENT_PLUGIN_PUBLIC_KEY_SHA256 }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_CHECK'
+          import hashlib, os, re
+          previous = os.environ['PREVIOUS_CATALOG_COMMIT']
+          if previous != 'none' and not re.fullmatch('[0-9a-f]{40}', previous):
+              raise SystemExit('reviewed previous catalog commit or none is required')
+          for name in ['SOURCE_COMMIT', 'TOOLS_COMMIT', 'EXPECTED_SOURCE_COMMIT', 'WORKFLOW_COMMIT', 'EXPECTED_WORKFLOW_COMMIT']:
+              if not re.fullmatch('[0-9a-f]{40}', os.environ[name]):
+                  raise SystemExit('reviewed source commit is required')
+          if os.environ['SOURCE_COMMIT'] != os.environ['EXPECTED_SOURCE_COMMIT'] or os.environ['WORKFLOW_COMMIT'] != os.environ['EXPECTED_WORKFLOW_COMMIT']:
+              raise SystemExit('source or workflow commit is not the owner-reviewed input')
+          import base64
+          development = {os.environ['DEVELOPMENT_CLI_KEY'], os.environ['DEVELOPMENT_PLUGIN_KEY']}
+          if not all(re.fullmatch('[0-9a-f]{64}', value) for value in development):
+              raise SystemExit('known development SPKI DER fingerprints are required')
+          roots = {}
+          for name in ['CLI', 'PLUGIN']:
+              lines = os.environ[name + '_PUBLIC_KEY_PEM'].strip().splitlines()
+              if len(lines) < 3 or lines[0] != '-----BEGIN PUBLIC KEY-----' or lines[-1] != '-----END PUBLIC KEY-----':
+                  raise SystemExit('SPKI public verification root is required')
+              der = base64.b64decode(''.join(lines[1:-1]), validate=True)
+              if len(der) != 44 or der[:12] != bytes.fromhex('302a300506032b6570032100'):
+                  raise SystemExit('Ed25519 SPKI verification root is required')
+              roots[name] = der
+              if hashlib.sha256(der).hexdigest() in development:
+                  raise SystemExit('development key cannot sign production releases')
+          if roots['CLI'] == roots['PLUGIN']:
+              raise SystemExit('CLI and plugin roots must differ')
+          PY_CHECK
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_commit }}
+          path: source
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: enkv-sh/extensions
+          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          path: tools-source
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build reviewed release tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir tools-source/bin
+          for tool in enkv-release enkv-plugin-build enkv-artifact-sign; do
+            (cd tools-source/sdk/artifact && go build -mod=readonly -trimpath -buildvcs=false -o "../../bin/$tool" "./cmd/$tool")
+          done
+      - id: matrix
+        shell: bash
+        run: echo "matrix=$(tools-source/bin/enkv-release matrix -inventory tools-source/distribution/release.json -kind plugins)" >> "$GITHUB_OUTPUT"
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    permissions:
+      contents: read
+    steps:
+      - name: Prepare native Linux C toolchain
+        if: runner.os == 'Linux'
+        shell: sh
+        run: |
+          set -eu
+          dnf install -y gcc gcc-c++ glibc-devel git tar gzip python3 findutils
+          test "$(getconf GNU_LIBC_VERSION)" = 'glibc 2.34'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_commit }}
+          path: source
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: enkv-sh/extensions
+          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          path: tools-source
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build reviewed release tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir tools-source/bin
+          for tool in enkv-release enkv-plugin-build enkv-artifact-sign; do
+            (cd tools-source/sdk/artifact && go build -mod=readonly -trimpath -buildvcs=false -o "../../bin/$tool" "./cmd/$tool")
+          done
+      - name: Build native versioned payload
+        shell: bash
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+          PLUGIN_NAME: ${{ matrix.name }}
+        run: |
+          set -euo pipefail
+          test "$(go env GOOS)/$(go env GOARCH)" = "$EXPECTED_PLATFORM"
+          test "$(go env GOVERSION)" = go1.27.3
+          cc --version
+          python3 tools-source/distribution/release.py build-plugin --source source --tools tools-source --work "$RUNNER_TEMP/build" --name "$PLUGIN_NAME"
+          mkdir -p "$RUNNER_TEMP/transport"
+          cp "$RUNNER_TEMP/build/prepared.tar" "$RUNNER_TEMP/transport/prepared.tar"
+          cp "$RUNNER_TEMP/build/metadata.json" "$RUNNER_TEMP/transport/metadata.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: build-${{ matrix.name }}-${{ matrix.tuple }}
+          path: ${{ runner.temp }}/transport/*
+          if-no-files-found: error
+          retention-days: 14
+  metadata:
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    environment: release-signing
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_commit }}
+          path: source
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: enkv-sh/extensions
+          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          path: tools-source
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build reviewed release tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir tools-source/bin
+          for tool in enkv-release enkv-plugin-build enkv-artifact-sign; do
+            (cd tools-source/sdk/artifact && go build -mod=readonly -trimpath -buildvcs=false -o "../../bin/$tool" "./cmd/$tool")
+          done
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: build-*
+          path: ${{ runner.temp }}/sign/incoming
+      - name: Sign metadata without loading payloads
+        shell: bash
+        env:
+          SIGNING_KEY: ${{ secrets.PLUGIN_SIGNING_KEY_PEM }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export PLUGIN_PRIVATE_KEY_FILE="$RUNNER_TEMP/plugin-private.pem"
+          trap 'rm -f "$PLUGIN_PRIVATE_KEY_FILE"' EXIT
+          printf '%s' "$SIGNING_KEY" > "$PLUGIN_PRIVATE_KEY_FILE"
+          python3 tools-source/distribution/release.py sign-metadata --source source --tools tools-source --work "$RUNNER_TEMP/sign"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: metadata-signatures
+          path: ${{ runner.temp }}/sign/*.sig
+          if-no-files-found: error
+          retention-days: 14
+  archive:
+    needs: [prepare, metadata]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    permissions:
+      contents: read
+    steps:
+      - name: Prepare native Linux C toolchain
+        if: runner.os == 'Linux'
+        shell: sh
+        run: |
+          set -eu
+          dnf install -y gcc gcc-c++ glibc-devel git tar gzip python3 findutils
+          test "$(getconf GNU_LIBC_VERSION)" = 'glibc 2.34'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_commit }}
+          path: source
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: enkv-sh/extensions
+          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          path: tools-source
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build reviewed release tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir tools-source/bin
+          for tool in enkv-release enkv-plugin-build enkv-artifact-sign; do
+            (cd tools-source/sdk/artifact && go build -mod=readonly -trimpath -buildvcs=false -o "../../bin/$tool" "./cmd/$tool")
+          done
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: build-${{ matrix.name }}-${{ matrix.tuple }}
+          path: ${{ runner.temp }}/archive-input
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: metadata-signatures
+          path: ${{ runner.temp }}/signatures
+      - name: Archive the same prepared source on its native platform
+        shell: bash
+        env:
+          PLUGIN_NAME: ${{ matrix.name }}
+          PLATFORM: ${{ matrix.tuple }}
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/archive-work"
+          tar -xf "$RUNNER_TEMP/archive-input/prepared.tar" -C "$RUNNER_TEMP/archive-work"
+          cp "$RUNNER_TEMP/signatures/build-$PLUGIN_NAME-$PLATFORM.sig" "$RUNNER_TEMP/archive-work/metadata.sig"
+          python3 tools-source/distribution/release.py archive-plugin --source source --tools tools-source --work "$RUNNER_TEMP/archive-work" --name "$PLUGIN_NAME"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: archive-${{ matrix.name }}-${{ matrix.tuple }}
+          path: ${{ runner.temp }}/archive-work/archive/*
+          if-no-files-found: error
+          retention-days: 14
+  sign:
+    needs: [prepare, archive]
+    runs-on: ubuntu-24.04
+    environment: release-signing
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_commit }}
+          path: source
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: enkv-sh/extensions
+          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          path: tools-source
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build reviewed release tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir tools-source/bin
+          for tool in enkv-release enkv-plugin-build enkv-artifact-sign; do
+            (cd tools-source/sdk/artifact && go build -mod=readonly -trimpath -buildvcs=false -o "../../bin/$tool" "./cmd/$tool")
+          done
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: archive-*
+          path: ${{ runner.temp }}/finish/incoming
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: vars.RELEASE_PREVIOUS_CATALOG_COMMIT != 'none'
+        with:
+          repository: enkv-sh/extensions
+          ref: ${{ vars.RELEASE_PREVIOUS_CATALOG_COMMIT }}
+          path: previous-catalog-source
+          persist-credentials: false
+      - name: Sign and independently check the complete candidate
+        shell: bash
+        env:
+          SIGNING_KEY: ${{ secrets.PLUGIN_SIGNING_KEY_PEM }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          PREVIOUS_CATALOG_COMMIT: ${{ vars.RELEASE_PREVIOUS_CATALOG_COMMIT }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export PLUGIN_PRIVATE_KEY_FILE="$RUNNER_TEMP/private.pem"
+          trap 'rm -f "$RUNNER_TEMP/private.pem"' EXIT
+          printf '%s' "$SIGNING_KEY" > "$RUNNER_TEMP/private.pem"
+          for path in "$RUNNER_TEMP/finish/incoming/"archive-*; do
+            mv "$path" "${path%/archive-*}/${path##*/archive-}"
+          done
+          previous=()
+          if [ "$PREVIOUS_CATALOG_COMMIT" != none ]; then
+            previous=(--previous-catalog "$GITHUB_WORKSPACE/previous-catalog-source/distribution/catalog")
+          fi
+          python3 tools-source/distribution/release.py finish-plugins --source source --tools tools-source --work "$RUNNER_TEMP/finish" --commit "$SOURCE_COMMIT" "${previous[@]}"
+          tar -cf "$RUNNER_TEMP/candidate.tar" -C "$RUNNER_TEMP/finish" candidate
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: signed-candidate
+          path: ${{ runner.temp }}/candidate.tar
+          if-no-files-found: error
+          retention-days: 14
+  stage:
+    needs: sign
+    runs-on: ubuntu-24.04
+    environment: release-draft
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.source_commit }}
+          path: source
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: enkv-sh/extensions
+          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          path: tools-source
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Build reviewed release tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir tools-source/bin
+          for tool in enkv-release enkv-plugin-build enkv-artifact-sign; do
+            (cd tools-source/sdk/artifact && go build -mod=readonly -trimpath -buildvcs=false -o "../../bin/$tool" "./cmd/$tool")
+          done
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: signed-candidate
+          path: ${{ runner.temp }}/candidate-input
+      - name: Verify candidate and stage exact draft bytes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/stage"
+          tar -xf "$RUNNER_TEMP/candidate-input/candidate.tar" -C "$RUNNER_TEMP/stage"
+          printf '%s' "$CLI_PUBLIC_KEY_PEM" > "$RUNNER_TEMP/cli-public.pem"
+          printf '%s' "$PLUGIN_PUBLIC_KEY_PEM" > "$RUNNER_TEMP/plugin-public.pem"
+          tools-source/bin/enkv-release assets -inventory tools-source/distribution/release.json -directory "$RUNNER_TEMP/stage/candidate" -output "$RUNNER_TEMP/stage/assets" -cli-public-key "$RUNNER_TEMP/cli-public.pem" -plugin-public-key "$RUNNER_TEMP/plugin-public.pem"
+          TAG=$(python3 -c 'import json; print(json.load(open("tools-source/distribution/release.json"))["plugin_release_tag"])')
+          python3 tools-source/distribution/stage-release.py --repository enkv-sh/extensions --tag "$TAG" --source "$SOURCE_COMMIT" --assets "$RUNNER_TEMP/stage/assets"

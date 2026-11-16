@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "github-actions-organization",
+  "role": "output",
+  "version": "0.1.0",
+  "wire": {
+    "kind": "wire",
+    "identity": "c0432dd35c122a5bf0b44a58234ef9aef0a2cbeb48acd2169f4bc027f322dcf2",
+    "version": 6
+  },
+  "generator": null,
+  "output": {
+    "config_contract_id": "github-actions/organization-config/v1",
+    "credential_route": "AAEJWpDEJZ98z5wkbEt9JvtAMyBJVFCCeVqkALviqGgdNgEBDEdJVEhVQl9UT0tFTgAAAAA="
+  },
+  "manifest": null
+}

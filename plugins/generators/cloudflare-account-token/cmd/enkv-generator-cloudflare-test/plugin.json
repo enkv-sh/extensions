@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "cloudflare-account-token",
+  "role": "generator",
+  "version": "0.1.0",
+  "wire": {
+    "kind": "wire",
+    "identity": "cc827c32a204204ec680e29c0b79df771ea2ad5d2c1df10170d8b450e7628b0f",
+    "version": 5
+  },
+  "generator": {
+    "config_contract_id": "7ede2a15bbf86395c097322b651f2752f9adf1bdfa346f09683e20e670ff10c1",
+    "credential_route": "AAHAJU5jVaEZw+1MeMBH/8qoW2e3p/AGuHDiR8KRiZK2+gEBFENMT1VERkxBUkVfQVBJX1RPS0VOAAAAAA=="
+  },
+  "output": null,
+  "manifest": null
+}

@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "cli_version": "0.1.0-beta.1",
+  "platforms": [
+    {
+      "platform": "darwin/arm64",
+      "runner": "macos-15"
+    },
+    {
+      "platform": "linux/amd64",
+      "runner": "ubuntu-24.04",
+      "container": "quay.io/almalinuxorg/almalinux@sha256:3b958c0ee1c6f610f39a23143117ebcf5812a17aa42b0b09ebdb6fed18da3ae5"
+    }
+  ],
+  "plugins": [
+    {
+      "name": "aws-secrets-manager",
+      "directory": "plugins/outputs/aws-secrets-manager",
+      "command": "./cmd/enkv-output-aws-secrets-manager",
+      "descriptor": "cmd/enkv-output-aws-secrets-manager/plugin.json",
+      "version": "0.1.0"
+    },
+    {
+      "name": "cloudflare-account-token",
+      "directory": "plugins/generators/cloudflare-account-token",
+      "command": "./cmd/enkv-generator-cloudflare",
+      "descriptor": "cmd/enkv-generator-cloudflare/plugin.json",
+      "version": "0.1.0"
+    },
+    {
+      "name": "gcp-secret-manager",
+      "directory": "plugins/outputs/gcp-secret-manager",
+      "command": "./cmd/enkv-output-gcp-secret-manager",
+      "descriptor": "cmd/enkv-output-gcp-secret-manager/plugin.json",
+      "version": "0.1.0"
+    },
+    {
+      "name": "generic-json",
+      "directory": "plugins/manifest-generators/generic-json",
+      "command": "./cmd/enkv-manifest-generic-json",
+      "descriptor": "cmd/enkv-manifest-generic-json/plugin.json",
+      "version": "0.1.0"
+    },
+    {
+      "name": "github-actions-environment",
+      "directory": "plugins/outputs/github-actions",
+      "command": "./cmd/enkv-output-github-environment",
+      "descriptor": "cmd/enkv-output-github-environment/plugin.json",
+      "version": "0.1.0"
+    },
+    {
+      "name": "github-actions-organization",
+      "directory": "plugins/outputs/github-actions",
+      "command": "./cmd/enkv-output-github-organization",
+      "descriptor": "cmd/enkv-output-github-organization/plugin.json",
+      "version": "0.1.0"
+    },
+    {
+      "name": "github-actions-repository",
+      "directory": "plugins/outputs/github-actions",
+      "command": "./cmd/enkv-output-github-repository",
+      "descriptor": "cmd/enkv-output-github-repository/plugin.json",
+      "version": "0.1.0"
+    },
+    {
+      "name": "local-random-secret",
+      "directory": "plugins/generators/local-random-secret",
+      "command": "./cmd/enkv-generator-local-random-secret",
+      "descriptor": "cmd/enkv-generator-local-random-secret/plugin.json",
+      "version": "0.1.0"
+    },
+    {
+      "name": "opentofu-tfvars-json",
+      "directory": "plugins/manifest-generators/opentofu-tfvars-json",
+      "command": "./cmd/enkv-manifest-opentofu-tfvars-json",
+      "descriptor": "cmd/enkv-manifest-opentofu-tfvars-json/plugin.json",
+      "version": "0.1.0"
+    }
+  ],
+  "plugin_release_tag": "plugins-v0.1.0"
+}

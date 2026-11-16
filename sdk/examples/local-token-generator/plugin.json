@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "private-local-token",
+  "role": "generator",
+  "version": "0.1.0",
+  "wire": {
+    "kind": "wire",
+    "identity": "cc827c32a204204ec680e29c0b79df771ea2ad5d2c1df10170d8b450e7628b0f",
+    "version": 5
+  },
+  "generator": {
+    "config_contract_id": "0280ab3c4fbe2f8279f592344001095c9509d7ebd749f01be042e138b1033d2f",
+    "credential_route": "AAG8wkERuA8srSlvSLdLLEj9TFfGwHFUw98Cn2DLpbPrfAEBEkVOS1ZfRVhBTVBMRV9UT0tFTgAAAAA="
+  },
+  "output": null,
+  "manifest": null
+}
