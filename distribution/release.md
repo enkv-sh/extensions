@@ -28,27 +28,38 @@ Dependency preparation may add sums, but must leave `go.mod` unchanged. Plugin
 archive creation uses the same complete prepared source and sums as its native
 build. Tar transport preserves the executable modes.
 
-The owner configures these repository variables before activating a workflow:
+Protect `main` in both repositories and restrict changes to reviewed source.
+To build a candidate, open **Actions → Build signed draft candidate → Run
+workflow**, select `main`, and click **Run workflow**. GitHub records the
+commit at dispatch. Each workflow uses that commit for its own code and
+payload. Review and publish the signed drafts as a separate owner action.
 
-- `RELEASE_WORKFLOW_COMMIT`: the full reviewed commit on `main` that owns the workflow.
-- `RELEASE_SOURCE_COMMIT`: the full reviewed payload source commit.
-- `RELEASE_EXTENSIONS_COMMIT`: the full reviewed tools and inventory commit.
-- `CLI_PUBLIC_KEY_PEM` and `PLUGIN_PUBLIC_KEY_PEM`: separate production Ed25519
-  SPKI public roots. Each is one PEM block with a final newline.
-- `DEVELOPMENT_CLI_PUBLIC_KEY_SHA256` and `DEVELOPMENT_PLUGIN_PUBLIC_KEY_SHA256`:
-  SHA-256 of the decoded canonical SPKI DER for each known development public key. Those roots are refused by production workflow preflight.
+The extensions workflow uses its own dispatched commit for tools and inventory.
+On its first attempt, the core workflow reads the commit at protected
+`enkv-sh/extensions:main`. It saves that SHA as a run artifact before building
+and uses that exact tools checkout through staging. A rerun restores the saved
+SHA. If the original pin is unavailable, start a new dispatch to select tools
+again. Core's native build evidence records the selected extensions SHA.
+For a coordinated beta, confirm both candidates used the same release inventory
+before promotion.
 
-For example, compute that identity with
-`openssl pkey -pubin -in development-plugin-public.pem -outform DER | shasum -a 256`.
-PEM wrapping does not change this key identity. CLI/plugin distinctness also
-compares decoded SPKI bytes.
+Configure four repository variables once in each repository:
 
-For the plugin workflow, set `RELEASE_PREVIOUS_CATALOG_COMMIT` to the full reviewed
-extensions commit containing the previous public tree at `distribution/catalog/`.
-Use the exact value `none` for the first catalog. It is an explicit first-release
-input, not a mutable remote lookup. Later candidates need that immutable reviewed
-snapshot to retain old routes and selections. The workflow checks out only that
-commit; the SDK validates all retained signed indexes and archive records.
+- `CLI_PUBLIC_KEY_PEM` and `PLUGIN_PUBLIC_KEY_PEM` contain the two production
+  Ed25519 SPKI public keys. Each PEM block includes its final newline.
+- `DEVELOPMENT_CLI_PUBLIC_KEY_SHA256` and `DEVELOPMENT_PLUGIN_PUBLIC_KEY_SHA256`
+  identify the known development keys. Use the SHA-256 of decoded SPKI DER.
+  For example, run
+  `openssl pkey -pubin -in development-plugin-public.pem -outform DER | shasum -a 256`.
+
+For a later plugin release, include the previous published catalog tree under
+`distribution/catalog/` in the reviewed extensions source. Preserve that tree
+during promotion of each release. The workflow checks the snapshot against
+published extensions releases, including prereleases. It uses the workflow job’s read-only GitHub token
+for that lookup. Drafts do not count as published releases. An empty start
+requires a successful lookup showing there have been no published releases.
+The catalog tool verifies signatures and retained routes before generating
+new signed indexes.
 
 Only the `release-signing` environment needs `CLI_SIGNING_KEY_PEM` or
 `PLUGIN_SIGNING_KEY_PEM` secrets, as applicable. They contain unencrypted Ed25519

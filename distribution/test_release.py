@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local draft-staging checks. All HTTP calls use an in-process mock."""
+"""Local release workflow and staging checks with mocked HTTP calls."""
 import importlib.util
 import json
 import os
@@ -16,11 +16,127 @@ import urllib.request
 import urllib.error
 import io
 from contextlib import redirect_stdout
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 spec = importlib.util.spec_from_file_location('stage_release', Path(__file__).with_name('stage-release.py'))
 stage_release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(stage_release)
+
+
+class CatalogPredecessorTests(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location('previous_catalog', Path(__file__).with_name('previous-catalog.py'))
+        self.previous = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.previous)
+
+    def test_first_release_requires_positive_empty_history(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            source = Path(scratch)
+            with patch.object(self.previous, 'read_json', return_value=[]):
+                self.assertFalse(self.previous.check(source))
+            for error in [OSError('unavailable'), ValueError('invalid JSON')]:
+                with patch.object(self.previous, 'read_json', side_effect=error), self.assertRaises(type(error)):
+                    self.previous.check(source)
+            with patch.object(self.previous, 'read_json', return_value={}), self.assertRaises(ValueError):
+                self.previous.check(source)
+            catalog = source / 'distribution/catalog'
+            catalog.mkdir(parents=True)
+            (catalog / 'redirects.json').write_text('[]')
+            with patch.object(self.previous, 'read_json', return_value=[]), self.assertRaises(ValueError):
+                self.previous.check(source)
+
+    def test_first_candidate_with_only_drafts_has_no_predecessor(self):
+        draft = {'id': 1, 'tag_name': 'plugins-v0.1.0', 'draft': True, 'prerelease': True}
+        with tempfile.TemporaryDirectory() as scratch, patch.object(self.previous, 'read_json', return_value=[draft]):
+            self.assertFalse(self.previous.check(Path(scratch)))
+
+    def test_api_token_stays_on_fixed_host_and_redirects_refuse(self):
+        for token in ['', 'scoped-workflow-token']:
+            connection = Mock()
+            response = connection.getresponse.return_value
+            response.status = 200
+            response.read.return_value = b'[]'
+            with patch.dict(os.environ, GH_TOKEN=token), patch.object(self.previous.http.client, 'HTTPSConnection', return_value=connection) as factory:
+                self.assertEqual(self.previous.read_json(self.previous.API + '/releases?per_page=5&page=1'), [])
+            factory.assert_called_once_with('api.github.com', timeout=30)
+            headers = connection.request.call_args.kwargs['headers']
+            self.assertEqual(headers.get('Authorization'), 'Bearer ' + token if token else None)
+            self.assertEqual(connection.request.call_args.args[:2], ('GET', '/repos/enkv-sh/extensions/releases?per_page=5&page=1'))
+            connection.close.assert_called_once()
+        for status in [301, 302, 403, 404, 500]:
+            connection = Mock()
+            connection.getresponse.return_value.status = status
+            with patch.object(self.previous.http.client, 'HTTPSConnection', return_value=connection), self.assertRaises(ValueError):
+                self.previous.read_json(self.previous.API + '/releases?per_page=5&page=1')
+            connection.getresponse.return_value.read.assert_not_called()
+            connection.close.assert_called_once()
+        for body in [b'{', b' ' * 2097153]:
+            connection = Mock()
+            response = connection.getresponse.return_value
+            response.status = 200
+            response.read.return_value = body
+            with patch.object(self.previous.http.client, 'HTTPSConnection', return_value=connection), self.assertRaises(ValueError):
+                self.previous.read_json(self.previous.API + '/releases?per_page=5&page=1')
+            connection.close.assert_called_once()
+        with patch.object(self.previous.http.client, 'HTTPSConnection') as connection, self.assertRaises(ValueError):
+            self.previous.read_json('https://evil.test/releases')
+        connection.assert_not_called()
+
+    def test_catalog_must_cover_all_published_release_assets(self):
+        base = 'https://api.github.com/repos/enkv-sh/extensions'
+        urls = ['https://github.com/enkv-sh/extensions/releases/download/plugins-v0.' + str(i) + '/plugin-' + str(i) + '.tar.gz' for i in [1, 2]]
+        releases = [{'id': i, 'tag_name': 'plugins-v0.' + str(i), 'draft': False, 'prerelease': i == 2} for i in [1, 2]]
+        releases[0]['tag_name'] = 'beta.2026_1'
+        urls[0] = 'https://github.com/enkv-sh/extensions/releases/download/beta.2026_1/plugin-1.tar.gz'
+        calls = []
+        def read(url):
+            calls.append(url)
+            if url == base + '/releases?per_page=5&page=1':
+                return releases
+            for i in [1, 2]:
+                if url == base + '/releases/' + str(i) + '/assets?per_page=100&page=1':
+                    return [{'id': 10 + i, 'name': 'plugin-' + str(i) + '.tar.gz', 'state': 'uploaded', 'browser_download_url': urls[i - 1]}]
+            self.fail(url)
+        with tempfile.TemporaryDirectory() as scratch:
+            source = Path(scratch)
+            catalog = source / 'distribution/catalog'
+            with patch.object(self.previous, 'read_json', side_effect=read), self.assertRaises(ValueError):
+                self.previous.check(source)
+            catalog.mkdir(parents=True)
+            for condition in ['complete', 'stale', 'unpublished', 'bad-host', 'duplicate']:
+                selected = urls[:1] if condition == 'stale' else list(urls)
+                if condition == 'unpublished':
+                    selected.append('https://github.com/enkv-sh/extensions/releases/download/future/plugin.tar.gz')
+                if condition == 'bad-host':
+                    selected[0] = 'https://evil.test/' + selected[0].split('/')[-1]
+                redirects = [{'path': '/releases/artifacts/' + str(i) + '/plugin.tar.gz', 'url': url} for i, url in enumerate(selected)]
+                redirects += [{'path': '/releases/plugins/name/' + str(i) + '/plugin.tar.gz', 'url': url} for i, url in enumerate(selected)]
+                if condition == 'duplicate':
+                    redirects.append(redirects[0])
+                (catalog / 'redirects.json').write_text(json.dumps(redirects))
+                with self.subTest(condition=condition), patch.object(self.previous, 'read_json', side_effect=read):
+                    if condition == 'complete':
+                        self.assertTrue(self.previous.check(source))
+                    else:
+                        with self.assertRaises(ValueError):
+                            self.previous.check(source)
+            self.assertIn(base + '/releases/2/assets?per_page=100&page=1', calls)
+
+    def test_pagination_and_failed_asset_reads_refuse(self):
+        pages = [[{'id': i} for i in range(1, 101)], [{'id': 101}]]
+        with patch.object(self.previous, 'read_json', side_effect=pages) as call:
+            self.assertEqual(len(list(self.previous.pages('/releases'))), 101)
+            self.assertTrue(call.call_args.args[0].endswith('page=2'))
+        pages = [[{'id': i}] for i in range(1, 103)] + [[]]
+        with patch.object(self.previous, 'read_json', side_effect=pages):
+            self.assertEqual(len(list(self.previous.pages('/releases', per_page=1))), 102)
+        with patch.object(self.previous, 'read_json', return_value=[{'id': 1}, {'id': 1}]), self.assertRaises(ValueError):
+            list(self.previous.pages('/releases'))
+        release = [{'id': 1, 'tag_name': 'plugins-v1', 'draft': False, 'prerelease': False}]
+        with tempfile.TemporaryDirectory() as scratch:
+            for value in [OSError('assets unavailable'), [], [{'id': 2, 'name': 'x.tar.gz', 'state': 'uploaded', 'browser_download_url': 'https://evil.test/x.tar.gz'}]]:
+                with patch.object(self.previous, 'read_json', side_effect=[release, value]), self.assertRaises((ValueError, OSError)):
+                    self.previous.check(Path(scratch))
 
 
 class StagingTests(unittest.TestCase):
@@ -47,20 +163,34 @@ class StagingTests(unittest.TestCase):
         def pem(body, width):
             encoded = base64.b64encode(body).decode()
             return '-----BEGIN PUBLIC KEY-----\n' + '\n'.join(textwrap.wrap(encoded, width)) + '\n-----END PUBLIC KEY-----\n'
-        for condition in ['valid', 'rewrapped-development', 'same-key', 'swapped-development', 'unreviewed-source', 'different-source']:
-            env = dict(os.environ, SOURCE_COMMIT='1' * 40, EXPECTED_SOURCE_COMMIT='1' * 40, WORKFLOW_COMMIT='3' * 40, EXPECTED_WORKFLOW_COMMIT='3' * 40, TOOLS_COMMIT='2' * 40, PREVIOUS_CATALOG_COMMIT='none', CLI_PUBLIC_KEY_PEM=pem(other, 64), PLUGIN_PUBLIC_KEY_PEM=pem(der, 32), DEVELOPMENT_CLI_KEY='0' * 64, DEVELOPMENT_PLUGIN_KEY='0' * 64)
+        for condition in ['valid', 'valid-rewrapped', 'rewrapped-development', 'same-key', 'swapped-development', 'invalid-source', 'unprotected-source']:
+            env = dict(os.environ, SOURCE_COMMIT='1' * 40, SOURCE_PROTECTED='true', CLI_PUBLIC_KEY_PEM=pem(other, 64), PLUGIN_PUBLIC_KEY_PEM=pem(der, 32), DEVELOPMENT_CLI_KEY='0' * 64, DEVELOPMENT_PLUGIN_KEY='0' * 64)
+            if condition == 'valid-rewrapped':
+                env['CLI_PUBLIC_KEY_PEM'] = pem(other, 16)
             if condition == 'rewrapped-development':
                 env['DEVELOPMENT_PLUGIN_KEY'] = hashlib.sha256(der).hexdigest()
             if condition == 'swapped-development':
                 env['DEVELOPMENT_CLI_KEY'] = hashlib.sha256(der).hexdigest()
             if condition == 'same-key':
                 env['CLI_PUBLIC_KEY_PEM'] = pem(der, 64)
-            if condition == 'different-source':
-                env['SOURCE_COMMIT'] = '4' * 40
-            if condition == 'unreviewed-source':
+            if condition == 'unprotected-source':
+                env['SOURCE_PROTECTED'] = 'false'
+            if condition == 'invalid-source':
                 env['SOURCE_COMMIT'] = 'main'
             result = subprocess.run(['bash', '-c', script], env=env, capture_output=True, timeout=10)
-            self.assertEqual(result.returncode == 0, condition == 'valid', condition)
+            self.assertEqual(result.returncode == 0, condition in ['valid', 'valid-rewrapped'], condition)
+
+    def test_plugin_workflow_uses_dispatch_source_for_every_checkout(self):
+        text = (Path(__file__).resolve().parents[1] / '.github/workflows/release.yml').read_text()
+        self.assertNotIn('inputs:', text)
+        self.assertNotIn('RELEASE_', '\n'.join(line for line in text.splitlines() if 'vars.' in line))
+        self.assertIn("github.repository == 'enkv-sh/extensions' && github.ref == 'refs/heads/main'", text)
+        references = [line.strip() for line in text.splitlines() if line.strip().startswith('ref:')]
+        self.assertEqual(len(references), 12)
+        self.assertEqual(set(references), {'ref: ${{ github.sha }}'})
+        self.assertEqual(text.count('SOURCE_COMMIT: ${{ github.sha }}'), 3)
+        self.assertEqual(text.count('run: python3 tools-source/distribution/previous-catalog.py --source source'), 3)
+        self.assertIn('previous=(--previous-catalog "$GITHUB_WORKSPACE/source/distribution/catalog")', text)
 
     def test_native_build_metadata_sign_and_prepared_source_archive(self):
         extensions = Path(__file__).resolve().parents[1]

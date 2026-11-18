@@ -1,11 +1,6 @@
 name: Build signed draft candidate
 on:
   workflow_dispatch:
-    inputs:
-      source_commit:
-        description: Reviewed full source commit configured for this candidate
-        type: string
-        required: true
 permissions: {}
 concurrency:
   group: release-candidate
@@ -28,26 +23,18 @@ jobs:
       - name: Check owner release inputs
         shell: bash
         env:
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
-          EXPECTED_SOURCE_COMMIT: ${{ vars.RELEASE_SOURCE_COMMIT }}
-          WORKFLOW_COMMIT: ${{ github.sha }}
-          EXPECTED_WORKFLOW_COMMIT: ${{ vars.RELEASE_WORKFLOW_COMMIT }}
-          TOOLS_COMMIT: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
-          PREVIOUS_CATALOG_COMMIT: ${{ vars.RELEASE_PREVIOUS_CATALOG_COMMIT }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_PROTECTED: ${{ github.ref_protected }}
           DEVELOPMENT_CLI_KEY: ${{ vars.DEVELOPMENT_CLI_PUBLIC_KEY_SHA256 }}
           DEVELOPMENT_PLUGIN_KEY: ${{ vars.DEVELOPMENT_PLUGIN_PUBLIC_KEY_SHA256 }}
         run: |
           set -euo pipefail
           python3 - <<'PY_CHECK'
           import hashlib, os, re
-          previous = os.environ['PREVIOUS_CATALOG_COMMIT']
-          if previous != 'none' and not re.fullmatch('[0-9a-f]{40}', previous):
-              raise SystemExit('reviewed previous catalog commit or none is required')
-          for name in ['SOURCE_COMMIT', 'TOOLS_COMMIT', 'EXPECTED_SOURCE_COMMIT', 'WORKFLOW_COMMIT', 'EXPECTED_WORKFLOW_COMMIT']:
-              if not re.fullmatch('[0-9a-f]{40}', os.environ[name]):
-                  raise SystemExit('reviewed source commit is required')
-          if os.environ['SOURCE_COMMIT'] != os.environ['EXPECTED_SOURCE_COMMIT'] or os.environ['WORKFLOW_COMMIT'] != os.environ['EXPECTED_WORKFLOW_COMMIT']:
-              raise SystemExit('source or workflow commit is not the owner-reviewed input')
+          if os.environ['SOURCE_PROTECTED'] != 'true':
+              raise SystemExit('release source must be protected main')
+          if not re.fullmatch('[0-9a-f]{40}', os.environ['SOURCE_COMMIT']):
+              raise SystemExit('GitHub dispatch source commit is required')
           import base64
           development = {os.environ['DEVELOPMENT_CLI_KEY'], os.environ['DEVELOPMENT_PLUGIN_KEY']}
           if not all(re.fullmatch('[0-9a-f]{64}', value) for value in development):
@@ -68,13 +55,13 @@ jobs:
           PY_CHECK
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.source_commit }}
+          ref: ${{ github.sha }}
           path: source
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: enkv-sh/extensions
-          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          ref: ${{ github.sha }}
           path: tools-source
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
@@ -89,6 +76,11 @@ jobs:
           for tool in enkv-release enkv-plugin-build enkv-artifact-sign; do
             (cd tools-source/sdk/artifact && go build -mod=readonly -trimpath -buildvcs=false -o "../../bin/$tool" "./cmd/$tool")
           done
+      - name: Check published catalog predecessor
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools-source/distribution/previous-catalog.py --source source
       - id: matrix
         shell: bash
         run: echo "matrix=$(tools-source/bin/enkv-release matrix -inventory tools-source/distribution/release.json -kind plugins)" >> "$GITHUB_OUTPUT"
@@ -111,13 +103,13 @@ jobs:
           test "$(getconf GNU_LIBC_VERSION)" = 'glibc 2.34'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.source_commit }}
+          ref: ${{ github.sha }}
           path: source
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: enkv-sh/extensions
-          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          ref: ${{ github.sha }}
           path: tools-source
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
@@ -161,13 +153,13 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.source_commit }}
+          ref: ${{ github.sha }}
           path: source
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: enkv-sh/extensions
-          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          ref: ${{ github.sha }}
           path: tools-source
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
@@ -186,6 +178,11 @@ jobs:
         with:
           pattern: build-*
           path: ${{ runner.temp }}/sign/incoming
+      - name: Check published catalog predecessor
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools-source/distribution/previous-catalog.py --source source
       - name: Sign metadata without loading payloads
         shell: bash
         env:
@@ -222,13 +219,13 @@ jobs:
           test "$(getconf GNU_LIBC_VERSION)" = 'glibc 2.34'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.source_commit }}
+          ref: ${{ github.sha }}
           path: source
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: enkv-sh/extensions
-          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          ref: ${{ github.sha }}
           path: tools-source
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
@@ -277,13 +274,13 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.source_commit }}
+          ref: ${{ github.sha }}
           path: source
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: enkv-sh/extensions
-          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          ref: ${{ github.sha }}
           path: tools-source
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
@@ -302,19 +299,16 @@ jobs:
         with:
           pattern: archive-*
           path: ${{ runner.temp }}/finish/incoming
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        if: vars.RELEASE_PREVIOUS_CATALOG_COMMIT != 'none'
-        with:
-          repository: enkv-sh/extensions
-          ref: ${{ vars.RELEASE_PREVIOUS_CATALOG_COMMIT }}
-          path: previous-catalog-source
-          persist-credentials: false
+      - name: Check published catalog predecessor
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools-source/distribution/previous-catalog.py --source source
       - name: Sign and independently check the complete candidate
         shell: bash
         env:
           SIGNING_KEY: ${{ secrets.PLUGIN_SIGNING_KEY_PEM }}
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
-          PREVIOUS_CATALOG_COMMIT: ${{ vars.RELEASE_PREVIOUS_CATALOG_COMMIT }}
+          SOURCE_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
           umask 077
@@ -325,8 +319,8 @@ jobs:
             mv "$path" "${path%/archive-*}/${path##*/archive-}"
           done
           previous=()
-          if [ "$PREVIOUS_CATALOG_COMMIT" != none ]; then
-            previous=(--previous-catalog "$GITHUB_WORKSPACE/previous-catalog-source/distribution/catalog")
+          if [ -d "$GITHUB_WORKSPACE/source/distribution/catalog" ]; then
+            previous=(--previous-catalog "$GITHUB_WORKSPACE/source/distribution/catalog")
           fi
           python3 tools-source/distribution/release.py finish-plugins --source source --tools tools-source --work "$RUNNER_TEMP/finish" --commit "$SOURCE_COMMIT" "${previous[@]}"
           tar -cf "$RUNNER_TEMP/candidate.tar" -C "$RUNNER_TEMP/finish" candidate
@@ -345,13 +339,13 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.source_commit }}
+          ref: ${{ github.sha }}
           path: source
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: enkv-sh/extensions
-          ref: ${{ vars.RELEASE_EXTENSIONS_COMMIT }}
+          ref: ${{ github.sha }}
           path: tools-source
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
@@ -374,7 +368,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          SOURCE_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
           mkdir "$RUNNER_TEMP/stage"
