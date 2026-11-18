@@ -114,6 +114,24 @@ func TestPublishBuildKeepsCompleteMarkerAndRefusesCorruptCollision(t *testing.T)
 			})
 		}
 	})
+	t.Run("reuse_preserves_private_directory_permissions", func(t *testing.T) {
+		root := publicationOutput(t)
+		marker, err := PublishBuild(ctx, root, first, firstExecutable, fixtureDependency(first))
+		if err != nil {
+			t.Fatal(err)
+		}
+		folder := filepath.Join(root, filepath.FromSlash(marker.Directory))
+		if err := os.Chmod(folder, 0500); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := PublishBuild(ctx, root, first, firstExecutable, fixtureDependency(first)); err != nil {
+			t.Fatal(err)
+		}
+		info, err := os.Stat(folder)
+		if err != nil || info.Mode().Perm() != 0500 {
+			t.Fatalf("reuse changed private permissions: %v %v", info, err)
+		}
+	})
 	for _, distinct := range []bool{false, true} {
 		name := "same_identity_concurrent"
 		if distinct {
@@ -515,12 +533,18 @@ type failingBuildDirectory struct {
 }
 
 func (d *failingBuildDirectory) Chmod(mode os.FileMode) error {
+	if d.condition == "chmod stage" && mode == 0755 {
+		return d.fail()
+	}
 	if d.condition == "chmod" && mode == 0555 {
 		return d.fail()
 	}
 	return d.File.Chmod(mode)
 }
 func (d *failingBuildDirectory) Sync() error {
+	if d.condition == "sync stage" && strings.HasPrefix(filepath.Base(filepath.Clean(d.Name())), ".build-") {
+		return d.fail()
+	}
 	if d.condition == "sync immutable" {
 		info, err := d.Stat()
 		if err != nil {
@@ -544,7 +568,7 @@ func TestPublishBuildDirectoryFailurePreservesPriorOrAdoptedBuild(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, condition := range []string{"chmod", "sync immutable", "sync parent"} {
+	for _, condition := range []string{"chmod stage", "sync stage", "chmod", "sync immutable", "sync parent"} {
 		t.Run(condition, func(t *testing.T) {
 			root := publicationOutput(t)
 			if _, err := PublishBuild(t.Context(), root, previous, previousExecutable, fixtureDependency(previous)); err != nil {
@@ -579,6 +603,9 @@ func TestPublishBuildDirectoryFailurePreservesPriorOrAdoptedBuild(t *testing.T) 
 			}
 			if adoptErr != nil {
 				t.Errorf("complete visible build could not be adopted: %v", adoptErr)
+			}
+			if adopted != (condition != "chmod stage" && condition != "sync stage") {
+				t.Errorf("build visibility at %s: adopted=%v", condition, adopted)
 			}
 			selected, verifyErr := VerifyBuild(t.Context(), root)
 			want := previous
@@ -630,6 +657,43 @@ func TestPublishBuildDirectoryFailurePreservesPriorOrAdoptedBuild(t *testing.T) 
 			}
 		})
 	}
+	t.Run("retry after chmod failure", func(t *testing.T) {
+		root := publicationOutput(t)
+		if _, err := PublishBuild(t.Context(), root, previous, previousExecutable, fixtureDependency(previous)); err != nil {
+			t.Fatal(err)
+		}
+		before := publicationMarker(t, root)
+		failure := errors.New("cannot seal directory")
+		opener := func(root *os.Root) (buildDirectoryFile, error) {
+			file, err := root.Open(".")
+			if err != nil {
+				return nil, err
+			}
+			return &failingBuildDirectory{File: file, condition: "chmod", fail: func() error { return failure }}, nil
+		}
+		if _, err := publishBuild(t.Context(), root, metadata, executable, fixtureDependency(metadata), opener); !errors.Is(err, failure) {
+			t.Fatalf("seal failure: %v", err)
+		}
+		if !bytes.Equal(before, publicationMarker(t, root)) {
+			t.Fatal("seal failure changed the previous selection")
+		}
+		target := filepath.Join(root, "builds", identity.String())
+		unsealed, err := os.Stat(target)
+		if err != nil || unsealed.Mode().Perm() != 0755 {
+			t.Fatalf("expected a complete owner-writable directory at its final name: %v %v", unsealed, err)
+		}
+		marker, err := PublishBuild(t.Context(), root, metadata, executable, fixtureDependency(metadata))
+		if err != nil || marker.Artifact != identity {
+			t.Fatalf("retry returned marker %v and error %v", marker, err)
+		}
+		sealed, err := os.Stat(target)
+		if err != nil || !os.SameFile(unsealed, sealed) || sealed.Mode().Perm() != 0555 {
+			t.Fatalf("retry did not seal the same directory: %v %v", sealed, err)
+		}
+		if selected, err := VerifyBuild(t.Context(), root); err != nil || !reflect.DeepEqual(selected, metadata) {
+			t.Fatalf("retry did not select the complete build: %v", err)
+		}
+	})
 }
 func mustPublicationMetadata(t *testing.T, metadata Metadata) []byte {
 	t.Helper()

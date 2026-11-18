@@ -13,8 +13,8 @@ import (
 // PublishBuild validates metadata, dependency bytes and the executable, then
 // publishes complete build bytes before atomically replacing build.json. It borrows
 // inputs through return and requires a nonnil context. Cleanup removes only paths
-// whose ownership is still proven. A failure can leave a complete build or an
-// already replaced marker if a later sync/close fails; it is not proof of no effect.
+// whose ownership is still proven. A failure can leave complete bytes for a later
+// publisher to verify and seal, or a replaced marker if a later sync/close fails.
 func PublishBuild(ctx context.Context, output string, metadata Metadata, executable string, dependency []byte) (marker BuildMarker, err error) {
 	return publishBuild(ctx, output, metadata, executable, dependency, openBuildDirectoryFile)
 }
@@ -88,13 +88,8 @@ func publishBuild(ctx context.Context, output string, metadata Metadata, executa
 	if err = stableParents(); err != nil {
 		return BuildMarker{}, err
 	}
-	if _, statErr := buildsRoot.Lstat(targetName); statErr == nil {
-		if _, err = verifyBuildFolder(ctx, target, identity); err != nil {
-			return BuildMarker{}, err
-		}
-	} else if !errors.Is(statErr, os.ErrNotExist) {
-		return BuildMarker{}, statErr
-	} else {
+	var renameErr error
+	if _, statErr := buildsRoot.Lstat(targetName); errors.Is(statErr, os.ErrNotExist) {
 		stagePath, makeErr := os.MkdirTemp(builds, ".build-")
 		if makeErr != nil {
 			return BuildMarker{}, makeErr
@@ -120,7 +115,9 @@ func publishBuild(ctx context.Context, output string, metadata Metadata, executa
 		if err = stage.check(); err != nil {
 			return BuildMarker{}, err
 		}
-		if err = stage.directory.Chmod(0555); err != nil {
+		// Keep owner write permission through rename. Some filesystems require it
+		// even when the old and new names have the same parent.
+		if err = stage.directory.Chmod(0755); err != nil {
 			return BuildMarker{}, err
 		}
 		if err = stage.directory.Sync(); err != nil {
@@ -129,27 +126,22 @@ func publishBuild(ctx context.Context, output string, metadata Metadata, executa
 		if err = errors.Join(ctx.Err(), stableParents()); err != nil {
 			return BuildMarker{}, err
 		}
-		if _, statErr := buildsRoot.Lstat(targetName); statErr == nil {
-			if _, err = verifyBuildFolder(ctx, target, identity); err != nil {
-				return BuildMarker{}, err
-			}
-		} else if !errors.Is(statErr, os.ErrNotExist) {
+		if _, statErr := buildsRoot.Lstat(targetName); errors.Is(statErr, os.ErrNotExist) {
+			renameErr = buildsRoot.Rename(stage.name, targetName)
+			published = renameErr == nil
+		} else if statErr != nil {
 			return BuildMarker{}, statErr
-		} else if renameErr := buildsRoot.Rename(stage.name, targetName); renameErr != nil {
-			if _, err = verifyBuildFolder(ctx, target, identity); err != nil {
-				return BuildMarker{}, errors.Join(renameErr, err)
-			}
-		} else {
-			published = true
-			if err = buildsDirectory.Sync(); err != nil {
-				return BuildMarker{}, err
-			}
 		}
+	} else if statErr != nil {
+		return BuildMarker{}, statErr
 	}
 	if err = errors.Join(ctx.Err(), stableParents()); err != nil {
-		return BuildMarker{}, err
+		return BuildMarker{}, errors.Join(renameErr, err)
 	}
-	if _, err = verifyBuildFolder(ctx, target, identity); err != nil {
+	if err = sealBuildFolder(ctx, buildsRoot, target, identity, openDirectory); err != nil {
+		return BuildMarker{}, errors.Join(renameErr, err)
+	}
+	if err = buildsDirectory.Sync(); err != nil {
 		return BuildMarker{}, err
 	}
 	markerBody, err := EncodeBuildMarker(marker)
@@ -180,6 +172,30 @@ func publishBuild(ctx context.Context, output string, metadata Metadata, executa
 	}
 
 	return marker, nil
+}
+
+func sealBuildFolder(ctx context.Context, parent *os.Root, target string, identity Digest, openDirectory buildDirectoryOpener) (err error) {
+	d, err := openBuildDirectory(parent, identity.String(), openDirectory)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, d.finish(false)) }()
+	if _, err := verifyBuildFolder(ctx, target, identity); err != nil {
+		return err
+	}
+	if err := d.check(); err != nil {
+		return err
+	}
+	info, err := d.directory.Stat()
+	if err != nil {
+		return err
+	}
+	if mode := info.Mode().Perm(); mode&0222 != 0 {
+		if err := d.directory.Chmod(mode &^ 0222); err != nil {
+			return err
+		}
+	}
+	return d.directory.Sync()
 }
 
 // VerifyBuild verifies one complete immutable folder selected by a stable marker.
