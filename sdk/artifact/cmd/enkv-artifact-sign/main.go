@@ -49,7 +49,7 @@ func run(args []string, stderr io.Writer) error {
 			writeErr = io.ErrShortWrite
 		}
 		if writeErr != nil {
-			return diagnosticFailure{cause: writeErr}
+			return signerFailure{"signer arguments: diagnostic", "write failed", writeErr}
 		}
 		return nil
 	}
@@ -80,34 +80,34 @@ func run(args []string, stderr io.Writer) error {
 	}
 	body, err := readBounded(*input, artifact.MaxRecordBytes)
 	if err != nil {
-		return fmt.Errorf("read record: %w", err)
+		return signerError("read record", err)
 	}
 	keyBytes, err := readBounded(*keyPath, 16384)
 	if err != nil {
-		return fmt.Errorf("read key: %w", err)
+		return signerError("read key", err)
 	}
 	if *verify {
 		key, err := artifact.ParsePublicKeyPEM(keyBytes)
 		if err != nil {
-			return err
+			return signerError("parse public key", err)
 		}
 		signature, err := readBounded(*signaturePath, 64)
 		if err != nil {
-			return fmt.Errorf("read signature: %w", err)
+			return signerError("read signature", err)
 		}
-		return artifact.VerifySignature(*purpose, body, signature, key)
+		return signerError("verify signature", artifact.VerifySignature(*purpose, body, signature, key))
 	}
 	key, err := artifact.ParsePrivateKeyPEM(keyBytes)
 	if err != nil {
-		return err
+		return signerError("parse private key", err)
 	}
 	signature, err := artifact.Sign(*purpose, body, key)
 	if err != nil {
-		return err
+		return signerError("sign record", err)
 	}
 	file, err := os.OpenFile(*output, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
-		return fmt.Errorf("create signature: %w", err)
+		return signerError("create signature", err)
 	}
 	n, writeErr := file.Write(signature)
 	if writeErr == nil && n != len(signature) {
@@ -115,18 +115,43 @@ func run(args []string, stderr io.Writer) error {
 	}
 	closeErr := file.Close()
 	if writeErr != nil || closeErr != nil {
-		return errors.Join(writeErr, closeErr, os.Remove(*output))
+		return errors.Join(signerError("write signature", writeErr), signerError("close signature", closeErr), signerError("remove incomplete signature", os.Remove(*output)))
 	}
 	return nil
 }
 
-type diagnosticFailure struct{ cause error }
+// Keep raw causes available for identity checks without publishing their paths
+// or parser messages through the command's printable error chain.
+type signerFailure struct {
+	operation, reason string
+	cause             error
+}
 
-// Error returns a closed diagnostic-delivery message without writer details.
-func (diagnosticFailure) Error() string { return "signer arguments: diagnostic: write failed" }
+func (e signerFailure) Error() string        { return e.operation + ": " + e.reason }
+func (e signerFailure) GoString() string     { return e.Error() }
+func (e signerFailure) Is(target error) bool { return errors.Is(e.cause, target) }
 
-// Unwrap preserves the diagnostic writer cause for errors.Is checks.
-func (failure diagnosticFailure) Unwrap() error { return failure.cause }
+func signerError(operation string, err error) error {
+	if err == nil {
+		return nil
+	}
+	reason := "operation failed"
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		reason = "file not found"
+	case errors.Is(err, os.ErrExist):
+		reason = "file exists"
+	case errors.Is(err, os.ErrPermission):
+		reason = "permission denied"
+	case errors.Is(err, io.ErrShortWrite):
+		reason = "short write"
+	case errors.Is(err, artifact.ErrRecord):
+		reason = "invalid record"
+	case errors.Is(err, artifact.ErrSignature):
+		reason = "invalid signature or key"
+	}
+	return signerFailure{operation, reason, err}
+}
 
 func main() {
 	if err := run(os.Args[1:], os.Stderr); err != nil {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -122,4 +123,70 @@ func (w *diagnosticWriter) Write(b []byte) (int, error) {
 	n := min(7, len(b))
 	w.bytes += n
 	return n, w.cause
+}
+
+// full_only: false
+func TestSignerReportsOnlyTheFailedOperationAndClass(t *testing.T) {
+	dir := t.TempDir()
+	input := filepath.Join(dir, "input")
+	key := filepath.Join(dir, "key")
+	if err := os.WriteFile(input, []byte("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  enkv.tar.gz\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{3}, 32))
+	privatePEM, err := artifact.EncodePrivateKeyPEM(private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(key, privatePEM, 0600); err != nil {
+		t.Fatal(err)
+	}
+	publicPEM, err := artifact.EncodePublicKeyPEM(private.Public().(ed25519.PublicKey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub := filepath.Join(dir, "public")
+	if err := os.WriteFile(pub, publicPEM, 0600); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(dir, "synthetic argument text")
+	for _, tc := range []struct {
+		name    string
+		args    []string
+		message string
+		cause   error
+	}{
+		{"record", []string{"-purpose", "cli-checksums", "-input", marker, "-key", key, "-output", key}, "read record: file not found", os.ErrNotExist},
+		{"key", []string{"-purpose", "cli-checksums", "-input", input, "-key", marker, "-output", key}, "read key: file not found", os.ErrNotExist},
+		{"signature", []string{"-verify", "-purpose", "cli-checksums", "-input", input, "-key", pub, "-signature", marker}, "read signature: file not found", os.ErrNotExist},
+		{"output", []string{"-purpose", "cli-checksums", "-input", input, "-key", key, "-output", filepath.Join(marker, "out")}, "create signature: file not found", os.ErrNotExist},
+		{"occupied", []string{"-purpose", "cli-checksums", "-input", input, "-key", key, "-output", input}, "create signature: file exists", os.ErrExist},
+		{"parse-key", []string{"-purpose", "cli-checksums", "-input", input, "-key", input, "-output", key}, "parse private key: invalid signature or key", artifact.ErrSignature},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			err := run(tc.args, &stderr)
+			if !errors.Is(err, tc.cause) {
+				t.Fatal("lost signer failure class")
+			}
+			fmt.Fprintln(&stderr, err)
+			if stderr.String() != tc.message+"\n" || fmt.Sprintf("%#v", err) != tc.message || fmt.Sprintf("%+v", err) != tc.message {
+				t.Fatal("diagnostic contained unreviewed details")
+			}
+		})
+	}
+}
+
+// full_only: false
+func TestSignerKeepsWriteCloseAndCleanupFailureClasses(t *testing.T) {
+	closed := errors.New("synthetic close detail")
+	failure := errors.Join(signerError("write signature", io.ErrShortWrite), signerError("close signature", &os.PathError{Op: "close", Path: "synthetic-path", Err: closed}), signerError("remove incomplete signature", os.ErrPermission))
+	for _, cause := range []error{io.ErrShortWrite, closed, os.ErrPermission} {
+		if !errors.Is(failure, cause) {
+			t.Fatal("joined signer failures lost their cause")
+		}
+	}
+	if failure.Error() != "write signature: short write\nclose signature: operation failed\nremove incomplete signature: permission denied" {
+		t.Fatal("unexpected terminal failure diagnostic")
+	}
 }
