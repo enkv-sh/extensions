@@ -36,10 +36,11 @@ payload. Review and publish the signed drafts as a separate owner action.
 
 The extensions workflow uses its own dispatched commit for tools and inventory.
 On its first attempt, the core workflow reads the commit at protected
-`enkv-sh/extensions:main`. It saves that SHA as a run artifact before building
-and uses that exact tools checkout through staging. A rerun restores the saved
-SHA. If the original pin is unavailable, start a new dispatch to select tools
-again. Core's native build evidence records the selected extensions SHA.
+`enkv-sh/extensions:main`. It saves the SHA in an artifact. A separate job on the first attempt
+records the SHA and the numeric artifact ID together. Before checking out tools,
+each job verifies that original job record, downloads the artifact by ID and
+compares its contents with the recorded SHA. This also applies when rerunning
+a single job. If either original record is unavailable, start a new dispatch. Core's native build evidence records the selected extensions SHA.
 For a coordinated beta, confirm both candidates used the same release inventory
 before promotion.
 
