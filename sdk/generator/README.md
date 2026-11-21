@@ -61,7 +61,7 @@ A completed create transfers the returned bytes without conversion. The host che
 
 Callbacks borrow request bytes and private input values only until synchronous return. Do not change, retain or clear them. Join all users before return. Returned variable facts, canonical settings and private values transfer their complete mutable allocations to the SDK even when a callback also returns an error. Expose the complete capacity, with no borrowed-input alias, hidden prefix or retained user.
 
-The SDK clears transferred values and variable backing after encoding or refusal, including failed writes. It checks observable input overlap, but cannot prove absence of hidden aliases or immutable copies. Implementations must dispose their own request/response resources and copies that they do not transfer.
+The private value and each public fact must have separate backing through their exposed capacities. The SDK checks this before encoding the response. It clears transferred values and variable backing after encoding or refusal, including failed writes. It checks observable input overlap, but cannot prove absence of hidden aliases or immutable copies. Implementations must dispose their own request/response resources and copies that they do not transfer.
 
 Callback contexts cannot exceed the issued deadline. Cancellation before callback entry refuses. Valid original managed-resource evidence can still be returned after cancellation; discarding it cannot establish no effect. A no-managed-resource result is discarded after cancellation. No write or callback is retried.
 

@@ -227,3 +227,71 @@ func TestRunRefusesNilArgumentsWithoutExecution(t *testing.T) {
 		})
 	}
 }
+
+// full_only: false
+func TestReturnedValueRequiresSeparatePublicStorage(t *testing.T) {
+	backing := make([]byte, 12)
+	for _, field := range []string{"target", "resource", "provider"} {
+		t.Run(field, func(t *testing.T) {
+			for _, tc := range []struct {
+				name          string
+				value, public []byte
+				overlap       bool
+			}{
+				{"same", backing[:4:4], backing[:4:4], true},
+				{"value-starts-first", backing[1:6:6], backing[4:8:8], true},
+				{"field-starts-first", backing[4:8:8], backing[1:6:6], true},
+				{"public-capacity", backing[6:8:8], backing[1:2:7], true},
+				{"value-capacity", backing[1:1:7], backing[6:8:8], true},
+				{"adjacent", backing[1:4:4], backing[4:6:6], false},
+				{"independent", make([]byte, 4), backing[:4], false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					var facts protocol.SafeFacts
+					switch field {
+					case "target":
+						facts.Target = tc.public
+					case "resource":
+						facts.ResourceData = tc.public
+					case "provider":
+						facts.ProviderFacts = tc.public
+					}
+					if got := overlapsReturned(facts, tc.value); got != tc.overlap {
+						t.Fatalf("overlap = %v, want %v", got, tc.overlap)
+					}
+				})
+			}
+		})
+	}
+}
+
+// full_only: false
+func TestRunRefusesSharedValueAndFactBackingBeforeEncoding(t *testing.T) {
+	for _, field := range []string{"target", "resource", "provider"} {
+		t.Run(field, func(t *testing.T) {
+			implementation := processImplementation()
+			command := processCommand(t, implementation)
+			control, environment, id := processInput(t, implementation, command)
+			backing := []byte("ordinary-test-bytes")
+			implementation.Create = func(_ context.Context, inv Invocation) (protocol.SafeFacts, []byte, error) {
+				facts := completeFacts(inv.Command)
+				public := backing[9:13]
+				switch field {
+				case "target":
+					facts.Target = public
+				case "resource":
+					facts.ResourceData = public
+				case "provider":
+					facts.ProviderFacts = public
+				}
+				return facts, backing[:4], nil
+			}
+			var result, status bytes.Buffer
+			if code := Run(t.Context(), &control, &environment, &result, &status, implementation); code != exitResultEncode || result.Len() != 0 {
+				t.Fatal("invalid ownership reached result delivery", code)
+			}
+			finalStatus(t, &status, id, protocol.Status{Stage: protocol.StatusStageResponse, Category: protocol.StatusProtocol})
+			assertCleared(t, backing)
+		})
+	}
+}

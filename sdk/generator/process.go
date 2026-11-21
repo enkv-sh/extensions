@@ -367,9 +367,19 @@ func clearFacts(f protocol.SafeFacts) {
 	clear(full(f.ProviderFacts))
 }
 func overlapsReturned(f protocol.SafeFacts, value []byte, inputs ...[]byte) bool {
-	for _, out := range [][]byte{full(value), full(f.Target), full(f.ResourceData), full(f.ProviderFacts)} {
+	value = full(value)
+	for _, in := range inputs {
+		if overlaps(value, in) {
+			return true
+		}
+	}
+	for _, field := range [...][]byte{f.Target, f.ResourceData, f.ProviderFacts} {
+		owned := full(field)
+		if overlaps(value, owned) {
+			return true
+		}
 		for _, in := range inputs {
-			if overlaps(out, in) {
+			if overlaps(owned, in) {
 				return true
 			}
 		}
