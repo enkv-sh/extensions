@@ -95,6 +95,7 @@ const (
 type Command struct {
 	Action                                           uint8
 	DeadlineUnixMillis                               uint64
+	CreateAttemptID                                  ID
 	HTTPRequestDigest, IntentDigest, Account, Target ID
 	TargetPresent                                    uint8
 	Intent                                           []byte

@@ -101,6 +101,7 @@ func execute(ctx context.Context, invocation generator.Invocation, origin string
 	request := provider.Command{Action: command.Action, DeadlineUnixMillis: command.DeadlineUnixMillis, Account: provider.ID(controls.Account), IntentDigest: provider.ID(controls.Digest)}
 	switch command.Action {
 	case protocol.ActionCreate:
+		request.CreateAttemptID = provider.ID(command.AttemptID)
 		body, err := controls.RequestJSON()
 		if err != nil {
 			return protocol.SafeFacts{}, nil, err

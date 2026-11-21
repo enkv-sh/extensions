@@ -79,6 +79,36 @@ A matching delete reply establishes deletion acknowledgement. It does not prove
 that an old token is unusable. Cleanup names only the exact retained account and
 token; it cannot recover an unknown creation through listing or adoption.
 
+## Find the marker for a lost CREATE reply
+
+Each CREATE sends a public marker in its HTTP `User-Agent`. If a reply is
+lost, the domain can be free while the token is still active. To identify
+the request, run `enkv generated list --source configuration.json --source-format json --json`
+with your configuration path. Find the possible-live CREATE warning for that
+operation and copy its `hazards[].facts.original_attempt_id`. The human
+output labels the same value `Attempt ID`.
+
+Replace `ATTEMPT_ID` below with that value. This local Python 3 command
+prints the exact CREATE user agent, including the marker.
+
+```sh
+python3 - 'ATTEMPT_ID' <<'PYTHON'
+import hashlib
+import re
+import sys
+
+attempt = sys.argv[1]
+if not re.fullmatch(r"[0-9a-f]{64}", attempt) or attempt == "0" * 64:
+    sys.exit("Expected the 64 lowercase hex digits of a nonzero CREATE Attempt ID")
+marker = hashlib.sha256(b"ENKV/Cloudflare/audit-marker/v1\0" + bytes.fromhex(attempt))
+print("enkv-generator-cloudflare/0.1.0 audit/" + marker.hexdigest())
+PYTHON
+```
+
+The marker can help match a request in the Cloudflare audit log. A match
+alone cannot establish the token ID or authorize a retry or deletion.
+This procedure applies to CREATEs sent by a plugin build with marker support.
+
 ## Building
 
 Start with the [public source layout and build setup](../../../distribution/README.md).

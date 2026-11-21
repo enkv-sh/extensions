@@ -4,7 +4,9 @@ package cloudflare
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"io"
 	"net"
@@ -77,10 +79,11 @@ func (c *Client) Execute(ctx context.Context, command provider.Command, bearer [
 	if !profile.ValidTag(account) || intentDigest == [32]byte{} || requestDigest == [32]byte{} {
 		return provider.SafeFacts{}, nil, ErrClient
 	}
+	userAgent := "enkv-generator-cloudflare/0.1.0"
 	var httpBody []byte
 	switch command.Action {
 	case provider.ActionCreate:
-		if command.TargetPresent != 0 || command.Target != (provider.ID{}) {
+		if command.CreateAttemptID == (provider.ID{}) || command.TargetPresent != 0 || command.Target != (provider.ID{}) {
 			return provider.SafeFacts{}, nil, ErrClient
 		}
 		intent, parseErr := profile.ParseIntent(command.Intent, account)
@@ -92,6 +95,8 @@ func (c *Client) Execute(ctx context.Context, command provider.Command, bearer [
 			return provider.SafeFacts{}, nil, ErrClient
 		}
 		defer clear(httpBody)
+		marker := sha256.Sum256(append([]byte("ENKV/Cloudflare/audit-marker/v1\x00"), command.CreateAttemptID[:]...))
+		userAgent += " audit/" + hex.EncodeToString(marker[:])
 	case provider.ActionDelete:
 		if command.TargetPresent != 1 || !profile.ValidTag(target) || len(command.Intent) != 0 {
 			return provider.SafeFacts{}, nil, ErrClient
@@ -135,7 +140,7 @@ func (c *Client) Execute(ctx context.Context, command provider.Command, bearer [
 	request.Header.Set("Authorization", "Bearer "+string(bearer))
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Accept-Encoding", "identity")
-	request.Header.Set("User-Agent", "enkv-generator-cloudflare/0.1.0")
+	request.Header.Set("User-Agent", userAgent)
 	if len(httpBody) > 0 {
 		request.Header.Set("Content-Type", contentType)
 		request.ContentLength = int64(len(httpBody))

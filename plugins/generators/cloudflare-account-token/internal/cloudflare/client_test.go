@@ -64,7 +64,7 @@ func createCommand(t *testing.T, responseValue string) (provider.Command, []byte
 		t.Fatal(err)
 	}
 	requestDigest := profile.HTTPRequestDigest(1, account, [32]byte{}, requestBody)
-	command := provider.Command{Action: 1, DeadlineUnixMillis: uint64(time.Now().Add(time.Minute).UnixMilli()),
+	command := provider.Command{Action: 1, CreateAttemptID: provider.ID{1}, DeadlineUnixMillis: uint64(time.Now().Add(time.Minute).UnixMilli()),
 		HTTPRequestDigest: provider.ID(requestDigest), IntentDigest: provider.ID(intent.Digest), Account: provider.ID(account), Intent: intentBody}
 	response, _, _ := createEnvelope(t, responseValue)
 	return command, []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN"), response
@@ -78,6 +78,37 @@ func TestProductionTransportIsOwnedHTTP1Only(t *testing.T) {
 		transport.TLSClientConfig == nil || transport.TLSClientConfig.InsecureSkipVerify || transport.TLSClientConfig.ServerName != "api.cloudflare.com" ||
 		transport.MaxResponseHeaderBytes != 16<<10 || transport.DialContext == nil {
 		t.Fatalf("transport is not closed: %+v", transport)
+	}
+}
+
+// full_only: false
+func TestProductionCreateUserAgentBindsAttempt(t *testing.T) {
+	command, bearer, _ := createCommand(t, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN")
+	client := NewProduction()
+	var agents []string
+	client.transport = func() ownedTransport {
+		return &testOwnedTransport{roundTrip: func(r *http.Request) (*http.Response, error) {
+			agents = append(agents, r.UserAgent())
+			r.Body.Close()
+			return nil, io.ErrUnexpectedEOF
+		}}
+	}
+	// Python hashlib.sha256 over the NUL-terminated v1 prefix and 32 raw
+	// bytes, first byte 01 or 02 followed by 31 zero bytes.
+	for i, digest := range []string{
+		"2822afe9d00715da82ad1c6bca0cc7f29be5ef86ae21dd74e9bee9bedcf79333",
+		"4b250dc941ace32888849d638947a9007a31d98854fdbdabcbe949d7c0b7aaf7",
+	} {
+		command.CreateAttemptID = provider.ID{byte(i + 1)}
+		facts, value, err := client.Execute(t.Context(), command, bearer)
+		if err != nil || value != nil || facts.Disposition != provider.DispositionUnknown || facts.TokenPresent != 0 ||
+			len(agents) != i+1 || agents[i] != "enkv-generator-cloudflare/0.1.0 audit/"+digest {
+			t.Errorf("CREATE %d did not send its exact marker once and retain an unknown outcome", i+1)
+		}
+	}
+	command.CreateAttemptID = provider.ID{}
+	if _, _, err := client.Execute(t.Context(), command, bearer); !errors.Is(err, ErrClient) || len(agents) != 2 {
+		t.Fatal("CREATE with no Attempt ID reached the transport or was accepted")
 	}
 }
 
@@ -374,7 +405,7 @@ func TestDeleteUsesExplicitRetainedIntentDigest(t *testing.T) {
 		IntentDigest: provider.ID(intentDigest), Account: provider.ID(account), TargetPresent: 1, Target: provider.ID(target)}
 	response := []byte(fmt.Sprintf(`{"success":true,"errors":[],"messages":[],"result":{"id":"%s"}}`, target))
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete || r.URL.Path != "/client/v4/accounts/0123456789abcdef0123456789abcdef/tokens/3456789abcdef0123456789abcdef012" || r.ContentLength > 0 || r.GetBody != nil {
+		if r.UserAgent() != "enkv-generator-cloudflare/0.1.0" || r.Method != http.MethodDelete || r.URL.Path != "/client/v4/accounts/0123456789abcdef0123456789abcdef/tokens/3456789abcdef0123456789abcdef012" || r.ContentLength > 0 || r.GetBody != nil {
 			t.Errorf("unexpected delete request: %+v", r)
 		}
 		_, _ = w.Write(response)
