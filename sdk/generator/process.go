@@ -310,7 +310,7 @@ func runPassive(ctx context.Context, frame protocol.Frame, result, status io.Wri
 		kind = protocol.KindCanonicalValidation
 	case protocol.RetirementCompatibilityRequest:
 		accepted := false
-		if v.CompletionClass == protocol.CompletionAcknowledged && implementation.CheckRetirementCompatibility != nil {
+		if v.CompletionClass == protocol.CompletionAcknowledged && implementation.Retire != nil && implementation.CheckRetirementCompatibility != nil {
 			accepted, err = implementation.CheckRetirementCompatibility(callbackContext, v)
 			accepted = accepted && err == nil && callbackContext.Err() == nil
 		}

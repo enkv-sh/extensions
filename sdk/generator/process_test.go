@@ -339,6 +339,89 @@ func TestCanonicalAndCompatibilityResponsesPreserveExactInput(t *testing.T) {
 }
 
 // full_only: false
+func TestRetirementCompatibilityRequiresUsableRetirement(t *testing.T) {
+	for _, condition := range []string{"retirement-only", "no-retire", "no-check", "incompatible", "canceled", "wrong-digest"} {
+		t.Run(condition, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			implementation := processImplementation()
+			implementation.Create = nil
+			implementation.Retire = func(context.Context, Invocation) (protocol.SafeFacts, error) {
+				t.Fatal("public compatibility check entered retirement")
+				return protocol.SafeFacts{}, nil
+			}
+			checks := 0
+			implementation.CheckRetirementCompatibility = func(context.Context, protocol.RetirementCompatibilityRequest) (bool, error) {
+				checks++
+				if condition == "canceled" {
+					cancel()
+				}
+				return condition != "incompatible", nil
+			}
+			if condition == "no-retire" {
+				implementation.Retire = nil
+			}
+			if condition == "no-check" {
+				implementation.CheckRetirementCompatibility = nil
+			}
+			command := processCommand(t, implementation)
+			original, err := protocol.EncodeSafeFacts(completeFacts(command))
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := protocol.RetirementCompatibilityRequest{Schema: 1, DeadlineUnixMillis: command.DeadlineUnixMillis, CompletionClass: protocol.CompletionAcknowledged, Intent: command.Intent, OriginalFacts: original}
+			request.InputDigest, err = protocol.RetirementCompatibilityInputDigest(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err := protocol.EncodeRetirementCompatibilityRequest(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if condition == "wrong-digest" {
+				body[10] ^= 1 // The digest follows the schema and deadline.
+			}
+			hello, err := protocol.EncodeHello(protocol.Hello{ProtocolID: implementation.Identity().ProtocolID, DescriptorID: implementation.Identity().DescriptorID, ArtifactContractID: processID(99)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var control, result, status bytes.Buffer
+			id := processID(98)
+			for _, frame := range []protocol.Frame{{Kind: protocol.KindHello, CommandID: id, Body: hello}, {Kind: protocol.KindRetirementCompatibility, CommandID: id, Body: body}} {
+				if err := protocol.WriteFrame(&control, frame); err != nil {
+					t.Fatal(err)
+				}
+			}
+			code := run(ctx, &control, bytes.NewReader(nil), &result, &status, implementation, func([]credentialroute.Input) (func() error, error) {
+				t.Fatal("public compatibility check installed private input")
+				return nil, nil
+			})
+			if condition == "wrong-digest" {
+				if code != exitCommandDecode || checks != 0 || result.Len() != 0 {
+					t.Fatal("invalid digest reached compatibility assessment", code, checks)
+				}
+				return
+			}
+			wantChecks := 1
+			if condition == "no-retire" || condition == "no-check" {
+				wantChecks = 0
+			}
+			if code != exitSuccess || checks != wantChecks {
+				t.Fatal("unexpected compatibility exchange", code, checks)
+			}
+			response, err := protocol.ReadExpectedFrame(&result, protocol.KindRetirementCompatibilityResult, id, protocol.MaximumPublicBody)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := protocol.DecodeValidationResponse(response)
+			if err != nil || got.Accepted != (condition == "retirement-only") || got.InputDigest != request.InputDigest || protocol.RequireEOF(&result) != nil {
+				t.Fatal("unexpected retirement compatibility response", got, err)
+			}
+		})
+	}
+}
+
+// full_only: false
 func TestRunCallbackFailurePreservesLifecycleStatus(t *testing.T) {
 	executionError := errors.New(processToken)
 	for _, tc := range []struct {

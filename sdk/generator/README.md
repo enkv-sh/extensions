@@ -14,7 +14,7 @@ to that checked binding and provide these callbacks:
 
 - `Normalize` returns an owned canonical `protocol.Intent` from public JSON settings.
 - `ValidateCanonical` validates the exact existing intent. It returns no replacement bytes or new defaults.
-- `CheckRetirementCompatibility` accepts or refuses the exact original intent/resource facts and required completion class for new retirement work.
+- The SDK calls `CheckRetirementCompatibility` only when `Retire` is implemented. The check accepts or refuses the exact original intent/resource facts and required completion class. An implementation used only for retirement can omit `Create`.
 - `Create` returns typed public facts and an owned private value.
 - `Retire` returns typed public facts for the exact original resource, with no value.
 
