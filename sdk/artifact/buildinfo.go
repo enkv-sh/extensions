@@ -288,7 +288,7 @@ func VerifyExecutable(ctx context.Context, path string, metadata Metadata) (resu
 		return err
 	}
 	if actual != metadata.Executable {
-		return errors.New("executable digest or length differs")
+		return fmt.Errorf("executable digest or length differs: %w", ErrRecord)
 	}
 	info, err := buildinfo.Read(io.NewSectionReader(contextReaderAt{ctx, file}, 0, before.Size()))
 	if err != nil {

@@ -115,6 +115,13 @@ func TestVerifyExecutableBuildInfoUsesOpenedFile(t *testing.T) {
 	if err := VerifyExecutable(t.Context(), path, metadata); err != nil {
 		t.Fatal("valid original executable refused", err)
 	}
+	different := filepath.Join(t.TempDir(), "plugin")
+	if err := os.WriteFile(different, []byte("different executable bytes"), 0500); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyExecutable(t.Context(), different, metadata); !errors.Is(err, ErrRecord) {
+		t.Fatal("measured executable mismatch did not identify a refused artifact", err)
+	}
 	before, err := os.Lstat(path)
 	if err != nil {
 		t.Fatal(err)
