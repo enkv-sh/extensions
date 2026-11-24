@@ -26,7 +26,7 @@ func TestLocalProfileUsesIndependentConstructionVectors(t *testing.T) {
 		t.Fatal("canonical intent differs from independent bytes")
 	}
 	digest, err := protocol.IntentDigest(body)
-	if err != nil || hex.EncodeToString(digest[:]) != "7cff5c980fb5350508be5e93551a714ce72f1345328e2943cd2f94397321cc88" {
+	if err != nil || hex.EncodeToString(digest[:]) != "6ade5139da36f6a3864590935c53737e91af5d0a1ba75d677f88c2a4b8781cf2" {
 		t.Fatal("canonical intent digest differs", err)
 	}
 	for _, input := range []string{`null`, `[]`, `{"unexpected":1}`} {

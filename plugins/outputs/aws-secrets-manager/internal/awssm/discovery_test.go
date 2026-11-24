@@ -581,7 +581,7 @@ func TestEndpointCredentialUpgradeRefusesBeforeBodyRead(t *testing.T) {
 					return out, metadata, err
 				}), "EnkvIMDSResponseBoundary", middleware.Before)
 			}
-			metadata := imds.New(imds.Options{Endpoint: request.URL.Scheme + "://" + request.URL.Host, HTTPClient: client, EnableFallback: aws.FalseTernary, Retryer: aws.NopRetryer{}, APIOptions: []func(*middleware.Stack) error{boundIMDSResponses, observe}})
+			metadata := imds.New(imds.Options{ClientEnableState: imds.ClientEnabled, Endpoint: request.URL.Scheme + "://" + request.URL.Host, HTTPClient: client, EnableFallback: aws.FalseTernary, Retryer: aws.NopRetryer{}, APIOptions: []func(*middleware.Stack) error{boundIMDSResponses, observe}})
 			result, err := metadata.GetMetadata(request.Context(), &imds.GetMetadataInput{Path: "credentials"})
 			if len(boundaryErrors) != 1 || !errors.Is(boundaryErrors[0], outputcredential.ErrCredential) || retry.NewStandard().IsErrorRetryable(&smithyhttp.RequestSendError{Err: boundaryErrors[0]}) {
 				t.Error("IMDS production boundary lost its safe nonretryable refusal")

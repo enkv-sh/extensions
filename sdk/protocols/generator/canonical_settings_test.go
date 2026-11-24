@@ -77,6 +77,8 @@ func canonicalSettingsCases() []struct {
 		{"scalar_null", `null`, true},
 		{"surrogate_pair", `{"\ud83d\ude00":"\ud83d\ude00"}`, true},
 		{"escaped_spelling", ` { "z": "\u0078\/", "a": 1.00 } `, true},
+		{"punctuation_within_string", `{"{":"[::]","nested":[{"q":"long\"quoted\"value"}]}`, true},
+		{"escaped_quote_before_lone_surrogate", `"abc\"def\ud800"`, false},
 		{"separate_object_keys", `[{"x":1},{"x":2}]`, true},
 		{"maximum_depth", strings.Repeat("[", 10000) + "0" + strings.Repeat("]", 10000), true},
 	}

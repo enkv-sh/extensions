@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"bytes"
 	"encoding/json"
 	"slices"
 	"strings"
@@ -23,10 +24,11 @@ func ValidCanonicalSettings(body []byte) bool {
 		object int
 		name   string
 	}
-	// A member consumes at least four bytes. Exact-capacity backing avoids
-	// unaccounted hash-table growth; sorting keeps each object's check bounded.
-	keys := make([]key, 0, len(body)/4)
-	stack := make([]frame, 0, min(10000, len(body)/2))
+	// Every object key has a colon. Count possible keys and containers before
+	// reserving scratch. Punctuation inside a string can only overestimate.
+	keys := make([]key, 0, min(len(body)/4, bytes.Count(body, []byte(":"))))
+	containers := bytes.Count(body, []byte("{")) + bytes.Count(body, []byte("["))
+	stack := make([]frame, 0, min(10000, len(body)/2, containers))
 	nextObject := 0
 	for i := 0; i < len(body); i++ {
 		switch body[i] {
@@ -82,7 +84,16 @@ func ValidCanonicalSettings(body []byte) bool {
 // encoding/json accepts lone surrogate escapes by replacing them. Check each
 // original string span before that lossy conversion can erase the distinction.
 func canonicalStringEnd(body []byte, start int) (int, bool) {
-	for i := start + 1; i < len(body); i++ {
+	span := body[start+1:]
+	quote := bytes.IndexByte(span, '"')
+	if quote < 0 {
+		return 0, false
+	}
+	escape := bytes.IndexByte(span[:quote], '\\')
+	if escape < 0 {
+		return start + 2 + quote, true
+	}
+	for i := start + 1 + escape; i < len(body); i++ {
 		switch body[i] {
 		case '"':
 			return i + 1, true

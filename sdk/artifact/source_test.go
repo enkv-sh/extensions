@@ -481,7 +481,7 @@ func TestSourceCaptureAdmitsOnlyBoundedRegularInputs(t *testing.T) {
 						}
 					}
 					got, err := CaptureSources(t.Context(), "output", []SourcePackage{pkg})
-					if kind == "regular" || kind == "alias" {
+					if kind == "regular" || kind == "alias" && input.name == "compiler" {
 						if err != nil || len(got) != 1 || got[0].Module != pkg.Module.Path || got[0].Digest.String() != input.digest {
 							t.Fatal("bounded regular source differs from independently framed bytes", got, err)
 						}

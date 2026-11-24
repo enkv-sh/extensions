@@ -89,7 +89,9 @@ func TestProductionCreateUserAgentBindsAttempt(t *testing.T) {
 	client.transport = func() ownedTransport {
 		return &testOwnedTransport{roundTrip: func(r *http.Request) (*http.Response, error) {
 			agents = append(agents, r.UserAgent())
-			r.Body.Close()
+			if err := r.Body.Close(); err != nil {
+				t.Errorf("close request body: %v", err)
+			}
 			return nil, io.ErrUnexpectedEOF
 		}}
 	}
