@@ -1,0 +1,1 @@
+{"schema":"enkv/plugin-index/v1","name":"gcp-secret-manager","releases":[{"version":"0.1.0","platform":"darwin/arm64","artifact":"e1ef2f94bee7a208bf532400219b72bac1cce221935173143e013f9690eb23bd"},{"version":"0.1.0","platform":"linux/amd64","artifact":"fb6e01f760845f37f2acc651598331108b9c2216b6b0c4d6234377e0ce301a9e"}]}

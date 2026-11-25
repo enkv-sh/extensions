@@ -1,0 +1,1 @@
+{"schema":"enkv/plugin-index/v1","name":"aws-secrets-manager","releases":[{"version":"0.1.0","platform":"darwin/arm64","artifact":"0f7cc32dc14c59d0cc1e422410ddfed9367c261a0db6b76eb71653b929ca86cf"},{"version":"0.1.0","platform":"linux/amd64","artifact":"8ad62c6ccee563a2bdbc2861c19095b23beef522ffc97bb45664815c0c584fb3"}]}

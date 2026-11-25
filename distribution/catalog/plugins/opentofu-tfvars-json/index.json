@@ -1,0 +1,1 @@
+{"schema":"enkv/plugin-index/v1","name":"opentofu-tfvars-json","releases":[{"version":"0.1.0","platform":"darwin/arm64","artifact":"5ae2b234931f3fd9bd5408395bd738b4f2e6306a0238b49edd6ea476b64d33c6"},{"version":"0.1.0","platform":"linux/amd64","artifact":"2ef482c885f5463bee4623e187c54237552796dd0c17b233f385d828f404e080"}]}

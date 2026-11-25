@@ -1,0 +1,1 @@
+{"schema":"enkv/plugin-index/v1","name":"local-random-secret","releases":[{"version":"0.1.0","platform":"darwin/arm64","artifact":"bfacae43df4d2cce166019b322486708740af3eb4529ac5b4c0aed8d4d56401c"},{"version":"0.1.0","platform":"linux/amd64","artifact":"41c06abb7de4f5b1be19cdd830877da42eeafdd3670c01f9acc0caaf45b822b6"}]}

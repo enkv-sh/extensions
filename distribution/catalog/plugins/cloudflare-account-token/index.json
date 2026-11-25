@@ -1,0 +1,1 @@
+{"schema":"enkv/plugin-index/v1","name":"cloudflare-account-token","releases":[{"version":"0.1.0","platform":"darwin/arm64","artifact":"18b2d8a3ab859418e6bf25a7d427de7134396876611ac26b34d3b2c99cb57ecb"},{"version":"0.1.0","platform":"linux/amd64","artifact":"b6abfe448fd14e2c6ce7f52be28a47acea92440005a34d65705b13c7cd672170"}]}

@@ -1,0 +1,1 @@
+{"schema":"enkv/plugin-index/v1","name":"github-actions-environment","releases":[{"version":"0.1.0","platform":"darwin/arm64","artifact":"0e3573f73308944e18d317610c1c0c6e9d239c17202470c19506904cec25ecb9"},{"version":"0.1.0","platform":"linux/amd64","artifact":"78c1eea9611182d2ce2ce657be41d37fd659f51d471051f34119a4cf01cdc08b"}]}
