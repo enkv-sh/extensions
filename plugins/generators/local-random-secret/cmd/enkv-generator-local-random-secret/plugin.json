@@ -2,7 +2,7 @@
   "schema": 1,
   "name": "local-random-secret",
   "role": "generator",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "wire": {
     "kind": "wire",
     "identity": "cc827c32a204204ec680e29c0b79df771ea2ad5d2c1df10170d8b450e7628b0f",

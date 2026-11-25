@@ -261,7 +261,7 @@ without force, and reads it back. It does not publish the draft.
 ```bash
 set -euo pipefail
 release_repository=enkv-sh/core
-release_tag=v0.1.0-beta.1
+release_tag=v0.1.0-beta.2
 release_source=FULL_40_HEX_REVIEWED_CANDIDATE_SOURCE_COMMIT
 release_checkout=/ABSOLUTE/OWNER/core
 release_remote="https://github.com/$release_repository.git"

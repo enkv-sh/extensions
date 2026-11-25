@@ -42,17 +42,17 @@ use (
 )
 
 replace (
-    enkv.sh/sdk/artifact v0.1.0 => ./sdk/artifact
-    enkv.sh/sdk/generator v0.1.0 => ./sdk/generator
-    enkv.sh/sdk/protocols/generator v0.1.0 => ./sdk/protocols/generator
+    enkv.sh/sdk/artifact v0.1.1 => ./sdk/artifact
+    enkv.sh/sdk/generator v0.1.1 => ./sdk/generator
+    enkv.sh/sdk/protocols/generator v0.1.1 => ./sdk/protocols/generator
     enkv.sh/sdk/examples/testservice v0.1.0 => ./sdk/examples/testservice
-    enkv.sh/sdk/examples/local-token-generator v0.1.0 => ./sdk/examples/local-token-generator
+    enkv.sh/sdk/examples/local-token-generator v0.1.1 => ./sdk/examples/local-token-generator
 )
 ```
 
 For the other examples, use the directories in the table and their exact module
 names from `go.mod`. Add one `use` entry and one exact-version `replace` entry
-for each local owner. These replacements bind the current `v0.1.0` requirements
+for each local owner. These replacements bind the required versions
 during complete graph loading; a `use` entry alone does not replace every
 required version. A new author module can use the same layout and rules.
 
@@ -75,8 +75,8 @@ explicit local trust and application selection.
 
 ### Build failures
 
-- A request for an unpublished `enkv.sh/... v0.1.0` usually means a required
-  local owner or exact-version replacement is missing. Check the selected
+- If Go tries to fetch an `enkv.sh/...` module during a local build,
+  check for a missing local owner or exact-version replacement. Check the selected
   workspace and every included `go.mod`.
 - An offline external-module failure needs the pinned module in the cache.
   Do not change its version to make the build pass.
@@ -140,7 +140,7 @@ module's mapping as a fallback for another module. Keep the four fields of each
 module subdirectory field. See the [Go module reference](https://go.dev/ref/mod#vcs-find-repo).
 
 Version changes do not require mapping deployment. A release tag includes the
-inventory's `tag_prefix`: for example, `sdk/generator/v0.1.0`. Deployment and a
+inventory's `tag_prefix`: for example, `sdk/generator/v0.1.1`. Deployment and a
 fetch of the exact published revisions are separate operator checks.
 
 ## Source development
@@ -151,8 +151,8 @@ builds. The workspace includes existing module owners only. It also replaces
 exact required versions of those modules with the same local owners so full
 graph loading needs no published first-party versions. The generator reads each
 owner's `go.mod` with the stock Go parser; external requirements stay unchanged.
-First-party module requirements select `v0.1.0`. Generated
-workspace replacements bind that version, not a wildcard. Regenerate after
+Each workspace replacement binds the exact version in the module requirements.
+Regenerate after
 changing an owner's requirements. Do not rewrite `enkv.sh/...` imports for local
 edits or a release.
 No root module is required. The test launcher uses `GOWORK=off` with private local
@@ -179,8 +179,8 @@ export GOWORK="$PWD/go.work"
 
 This route requires reachable exact module versions at the public source
 repositories and deployed Go mappings. Each module uses its directory prefix
-for tags, such as `sdk/artifact/v0.1.0`. First-party requirements select
-`v0.1.0`; the declarations alone do not prove that these tags are published.
+for tags, such as `sdk/artifact/v0.1.1`. A detached build needs each tag selected by its
+first-party module requirements.
 Use a detached main-module build directory with `GOWORK=off` and no filesystem
 replacements. A public source fetch needs no private Git credentials or
 `GOPRIVATE` setting.

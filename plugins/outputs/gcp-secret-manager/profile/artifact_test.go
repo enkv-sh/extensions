@@ -19,7 +19,7 @@ func TestArtifactCredentialRecipeIdentities(t *testing.T) {
 		t.Fatal(err)
 	}
 	id, err := d.Identity()
-	if err != nil || id.String() != "9f01ecfc93cd90f623d10f43c2a100ad6fd39bc8da5371dbcce8f730bf42a298" {
+	if err != nil || id.String() != "944789df3799712ecdcf7189e4c250bedcd90ca6ffd313f819f88bd02547030b" {
 		t.Fatal("independent exact descriptor identity", id, err)
 	}
 	route, err := credentialroute.Decode(d.Output.CredentialRoute)

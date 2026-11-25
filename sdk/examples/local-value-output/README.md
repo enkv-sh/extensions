@@ -52,8 +52,8 @@ sdk/examples/testservice/
 sdk/examples/local-value-output/
 ```
 
-Use this explicit `go.work` at the kit root for the source modules' current
-`v0.1.0` requirements. Exact replacements also prevent Go from fetching metadata
+Use this explicit `go.work` at the kit root for the versions in the
+module requirements. Exact replacements also prevent Go from fetching metadata
 for those local versions:
 
 ```go
@@ -68,9 +68,9 @@ use (
 )
 
 replace (
-    enkv.sh/sdk/artifact v0.1.0 => ./sdk/artifact
+    enkv.sh/sdk/artifact v0.1.1 => ./sdk/artifact
     enkv.sh/sdk/protocols/output v0.1.0 => ./sdk/protocols/output
-    enkv.sh/sdk/output v0.1.0 => ./sdk/output
+    enkv.sh/sdk/output v0.1.1 => ./sdk/output
     enkv.sh/sdk/examples/testservice v0.1.0 => ./sdk/examples/testservice
 )
 ```

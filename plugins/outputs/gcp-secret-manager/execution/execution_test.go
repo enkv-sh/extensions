@@ -51,7 +51,7 @@ func TestPublicExecutionPreservesGCPContractsAndLocalRefusals(t *testing.T) {
 			}
 		})
 	}
-	expected, err := hex.DecodeString("9f01ecfc93cd90f623d10f43c2a100ad6fd39bc8da5371dbcce8f730bf42a298")
+	expected, err := hex.DecodeString("944789df3799712ecdcf7189e4c250bedcd90ca6ffd313f819f88bd02547030b")
 	if err != nil {
 		t.Fatal(err)
 	}

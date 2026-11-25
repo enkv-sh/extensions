@@ -51,7 +51,7 @@ func TestPublicExecutionPreservesAWSContractsAndLocalRefusals(t *testing.T) {
 			}
 		})
 	}
-	expected, err := hex.DecodeString("e94b164f79a21c5db3aa780ece37c940a915ee76bcc01e86f67fd8c103195fa3")
+	expected, err := hex.DecodeString("f1c462b07394555dd7a2d602b48c678bb2b2f8901310cff5713a972fbc43d6c0")
 	if err != nil {
 		t.Fatal(err)
 	}

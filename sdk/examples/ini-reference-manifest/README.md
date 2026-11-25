@@ -67,10 +67,10 @@ use (
 )
 
 replace (
-    enkv.sh/sdk/artifact v0.1.0 => ./sdk/artifact
-    enkv.sh/sdk/manifest-generator v0.1.0 => ./sdk/manifest-generator
-    enkv.sh/sdk/protocols/manifest-generator v0.1.0 => ./sdk/protocols/manifest-generator
-    enkv.sh/sdk/examples/ini-reference-manifest v0.1.0 => ./sdk/examples/ini-reference-manifest
+    enkv.sh/sdk/artifact v0.1.1 => ./sdk/artifact
+    enkv.sh/sdk/manifest-generator v0.1.1 => ./sdk/manifest-generator
+    enkv.sh/sdk/protocols/manifest-generator v0.1.1 => ./sdk/protocols/manifest-generator
+    enkv.sh/sdk/examples/ini-reference-manifest v0.1.1 => ./sdk/examples/ini-reference-manifest
 )
 ```
 

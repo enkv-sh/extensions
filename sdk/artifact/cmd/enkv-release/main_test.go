@@ -22,7 +22,7 @@ func TestOfficialReleaseInventory(t *testing.T) {
 		names = append(names, p.Name)
 	}
 	want := []string{"aws-secrets-manager", "cloudflare-account-token", "gcp-secret-manager", "generic-json", "github-actions-environment", "github-actions-organization", "github-actions-repository", "local-random-secret", "opentofu-tfvars-json"}
-	if !reflect.DeepEqual(names, want) || inv.CLIVersion != "0.1.0-beta.1" || inv.PluginTag != "plugins-v0.1.0" {
+	if !reflect.DeepEqual(names, want) || inv.CLIVersion != "0.1.0-beta.2" || inv.PluginTag != "plugins-v0.1.1" {
 		t.Fatalf("release inventory differs: %+v", inv)
 	}
 	for _, plugin := range inv.Plugins {
@@ -34,7 +34,7 @@ func TestOfficialReleaseInventory(t *testing.T) {
 		if err := json.Unmarshal(body, &descriptor); err != nil {
 			t.Fatal(err)
 		}
-		if descriptor.Name != plugin.Name || descriptor.Version != "0.1.0" {
+		if descriptor.Name != plugin.Name || descriptor.Version != plugin.Version || plugin.Version != "0.1.1" {
 			t.Fatalf("descriptor differs: %+v", descriptor)
 		}
 	}
@@ -69,8 +69,8 @@ func TestInstallationPageUsesExactInventoryLinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	page := installationPage(inv)
-	for _, name := range []string{"enkv-full-0.1.0-beta.1-darwin-arm64.tar.gz", "enkv-full-0.1.0-beta.1-linux-amd64.tar.gz"} {
-		if !strings.Contains(page, "https://github.com/enkv-sh/core/releases/download/v0.1.0-beta.1/"+name) {
+	for _, name := range []string{"enkv-full-0.1.0-beta.2-darwin-arm64.tar.gz", "enkv-full-0.1.0-beta.2-linux-amd64.tar.gz"} {
+		if !strings.Contains(page, "https://github.com/enkv-sh/core/releases/download/v0.1.0-beta.2/"+name) {
 			t.Fatal("missing exact CLI link", name)
 		}
 	}

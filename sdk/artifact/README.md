@@ -41,7 +41,7 @@ maintained `go.mod` files.
 
 [Versioned dependency builds](../../distribution/README.md#versioned-dependency-builds)
 are a separate route. They need reachable exact versions and any required source
-access. The current `v0.1.0` requirements do not establish published versions.
+access.
 Use `-versioned` instead of `-workspace` only when those prerequisites hold.
 
 The author descriptor declares a portable local plugin name, one of the three

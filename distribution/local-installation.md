@@ -5,7 +5,7 @@ For a first installation, use the
 then the [AWS or GCP first-use path](https://github.com/enkv-sh/core/blob/main/docs/README.md#start-with-one-secret).
 This reference gives the detailed archive and plugin-selection rules.
 
-Use a native archive for `darwin/arm64` or `linux/amd64`. The first beta
+Use a native archive for `darwin/arm64` or `linux/amd64`. The beta
 distributes the `full` archive, which supports both AWS and GCP domain Store/KMS.
 Selected-provider archives remain development options. CLI compositions do not
 define a list of plugin services or formats. Plugins are separate
@@ -32,7 +32,7 @@ checksum beside an untrusted download is insufficient by itself.
 openssl pkeyutl -verify -rawin -pubin \
   -inkey /absolute/trusted-cli-public.pem \
   -in checksums.txt -sigfile checksums.sig || exit 1
-archive=enkv-full-0.1.0-beta.1-darwin-arm64.tar.gz
+archive=enkv-full-0.1.0-beta.2-darwin-arm64.tar.gz
 expected=$(awk -v name="$archive" '$2 == name {print $1}' checksums.txt)
 actual=$(shasum -a 256 "$archive") || exit 1
 [ "$expected" = "${actual%% *}" ] || exit 1
@@ -44,7 +44,7 @@ This example installs the full macOS/arm64 beta archive. Select the correspondin
 Linux archive on Linux:
 
 ```sh
-archive=enkv-full-0.1.0-beta.1-darwin-arm64.tar.gz
+archive=enkv-full-0.1.0-beta.2-darwin-arm64.tar.gz
 mkdir /absolute/new-enkv || exit 1
 tar -xzf "$archive" -C /absolute/new-enkv || exit 1
 mkdir -p "$HOME/.local/bin" || exit 1

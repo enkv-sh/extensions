@@ -3,8 +3,8 @@ module enkv.sh/plugins/outputs/gcp-secret-manager
 go 1.27.0
 
 require (
- enkv.sh/sdk/artifact v0.1.0
-	enkv.sh/sdk/output v0.1.0
+ enkv.sh/sdk/artifact v0.1.1
+	enkv.sh/sdk/output v0.1.1
 	enkv.sh/sdk/protocols/output v0.1.0
 	google.golang.org/api v0.222.0
 )

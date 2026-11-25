@@ -212,7 +212,7 @@ refusal.
 
 A detached public kit contains this module, the output protocol, artifact module
 and the author's module. Use the explicit detached workspace in the example
-for local source development. Its `v0.1.0` requirements select exact source
+for local source development. Its module requirements select exact source
 versions; declarations alone do not prove publication. Versioned builds need
 reachable compatible published versions of every module and `GOWORK=off`. Run each module's ordinary Go
 tests; an offline populated cache can use:

@@ -31,14 +31,14 @@ use (
 )
 
 replace (
-    enkv.sh/sdk/artifact v0.1.0 => ./sdk/artifact
-    enkv.sh/sdk/protocols/generator v0.1.0 => ./sdk/protocols/generator
-    enkv.sh/sdk/generator v0.1.0 => ./sdk/generator
+    enkv.sh/sdk/artifact v0.1.1 => ./sdk/artifact
+    enkv.sh/sdk/protocols/generator v0.1.1 => ./sdk/protocols/generator
+    enkv.sh/sdk/generator v0.1.1 => ./sdk/generator
     enkv.sh/sdk/examples/testservice v0.1.0 => ./sdk/examples/testservice
 )
 ```
 
-The `v0.1.0` requirements bind to these explicit source owners. No private ENKV
+The module requirements bind to these explicit source owners. No private ENKV
 or official plugin module is needed. From the copied example directory:
 
 ```sh
